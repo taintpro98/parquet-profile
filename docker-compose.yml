@@ -1,0 +1,20 @@
+# Local Oracle for smoke-testing only. Benchmark numbers should come from the real environment.
+# Datafiles live in ./data/oracle on the host, and docker/seed.sql runs on the first startup only.
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    container_name: parquet-profile-oracle
+    ports:
+      - "127.0.0.1:1521:1521"
+    environment:
+      ORACLE_RANDOM_PASSWORD: "yes"
+      APP_USER: benchmark
+      APP_USER_PASSWORD: benchmark
+    volumes:
+      - ./data/oracle:/opt/oracle/oradata
+      - ./docker/seed.sql:/container-entrypoint-initdb.d/seed.sql:ro
+    healthcheck:
+      test: ["CMD", "/opt/oracle/healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
