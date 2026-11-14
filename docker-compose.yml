@@ -1,5 +1,5 @@
 # Local Oracle for smoke-testing only. Benchmark numbers should come from the real environment.
-# Datafiles live in ./data/oracle on the host, and docker/seed.sql runs on the first startup only.
+# Datafiles live in ./data/oracle on the host. make seed fills it, make seed-clean deletes it.
 services:
   oracle:
     image: gvenzl/oracle-free:23-slim
@@ -12,7 +12,6 @@ services:
       APP_USER_PASSWORD: benchmark
     volumes:
       - ./data/oracle:/opt/oracle/oradata
-      - ./docker/seed.sql:/container-entrypoint-initdb.d/seed.sql:ro
     healthcheck:
       test: ["CMD", "/opt/oracle/healthcheck.sh"]
       interval: 10s

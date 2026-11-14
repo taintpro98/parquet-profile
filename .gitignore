@@ -1,5 +1,9 @@
-target/
+.DS_Store
 data/
+impl/java/target/
+impl/go/bin/
+results/runs/
 /*-profile-*.html
 /*-profile-*.jsonl
-.DS_Store
+seed/gen/gen
+bench/refs/

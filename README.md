@@ -1,293 +1,227 @@
 # parquet-profile
 
-## Purpose
+So sánh các phương án **lưu và nén** dữ liệu giao dịch lạnh (cold archive), viết bằng Java và Go.
 
-A small benchmark for a cold archive design. It answers one question: what CPU time and peak RAM
-does a Java process need for these two operations?
+**Bài toán:** đưa vào **key (`REFERENCE`) + timestamp (`CREATED_AT`)**, lấy ra **một bản ghi đầy đủ**
+(73 cột). Dữ liệu chia theo **ngày**: mỗi ngày khoảng 10 triệu dòng nằm trong **một file**
+`YYYY-MM-DD.<đuôi>`. Timestamp chọn file của ngày, key tìm bản ghi trong file đó.
 
-- **WRITE:** Oracle 10M rows → one Parquet file sorted by `REFERENCE`
-- **FIND:** Parquet → DuckDB → one record by `REFERENCE`
+Mỗi phương án làm hai việc:
 
-One invocation runs one operation. It is not a benchmark suite and it does not generate test data:
-the Oracle table must already exist.
+- **DUMP**: đọc Oracle theo (ngày, `REFERENCE`), ghi mỗi ngày ra một file.
+- **FIND**: với danh sách key + timestamp, trả về bản ghi có đúng key và đúng timestamp.
 
-## Metrics
+## Chỉ số
 
-| Metric | Meaning |
+| Chỉ số | Ý nghĩa |
 | --- | --- |
-| **Wall Time** | Elapsed time from `System.nanoTime()`. Includes waiting for Oracle, the network, the disk and the OS scheduler. |
-| **CPU Time** | `OperatingSystemMXBean.getProcessCpuTime()` delta: CPU consumed by all threads of the Java process, including GC, JIT, the sampler and DuckDB's native threads. Time spent waiting is not counted, so it can be lower than Wall Time. On many cores it can also be higher. |
-| **Peak CPU** | Highest CPU use between two samples, about 100 ms apart, in cores. A short burst inside one interval is averaged with the rest of that interval. |
-| **Peak Process RAM** | The primary RAM metric. Highest resident set size (RSS) of the whole process, including heap, metaspace, thread stacks and native memory. |
-| **Peak JVM Heap** | Context only. Highest used heap, including uncollected garbage. It does not contain DuckDB's native memory. |
-| **File Size** | Size of the finished Parquet file (WRITE only). |
+| Wall (s) | Thời gian thực từ lúc khởi động tiến trình tới khi kết thúc |
+| CPU (s) | user + sys của tiến trình, tính mọi thread |
+| Peak RAM (MB) | RSS cao nhất của cả tiến trình (heap, native, DuckDB…) |
+| File (MB) | Kích thước archive (DUMP) |
+| Đúng | DUMP ghi được dòng, FIND trả đúng số bản ghi mong đợi |
 
-RSS has no portable Java API, so `MemorySampler` is OS specific. A sample is taken every 100 ms.
+Runner đo **từ bên ngoài tiến trình** (`wait4`/rusage), nên Java và Go được đo cùng một cách, và số đo
+đã gồm cả khởi động JVM, DuckDB, kết nối Oracle.
 
-| OS | Source | Notes |
+## Lệnh
+
+Tất cả chạy từ thư mục gốc. Cần Docker, Python 3, Go, JDK 25 và Maven (Makefile tự tìm).
+
+```bash
+make seed                            # sinh 100k dòng ngẫu nhiên vào Oracle (Docker) + golden + bench/refs
+make seed-clean                      # xoá dữ liệu cũ (Oracle, archive, refs) để giải phóng ổ đĩa
+make seed-archives IMPL=all          # dump archive một ngày cho từng phương án (lâu, tốn ổ đĩa, xem "Dữ liệu")
+make list                            # các phương án hiện có
+make test                            # test đúng/sai, mọi phương án (IMPL=... để chọn)
+
+make dump  IMPL=go-parquet-duckdb
+make find  IMPL=go-parquet-duckdb SCENARIO=many-1000 CACHE=cold RUNS=5
+make bench IMPL=all                  # dump rồi find mọi kịch bản
+make report                          # tạo lại results/REPORT.md
+```
+
+| Tham số | Giá trị | Mặc định |
 | --- | --- | --- |
-| Linux | `/proc/self/status` | `VmRSS` samples plus the kernel's `VmHWM` high-water mark, so short peaks between samples are not missed. Preferred for real numbers. |
-| macOS | `ps -o rss= -p <pid>` | Spawns a process per sample. The spawn adds a little CPU Time, and peaks shorter than 100 ms can be missed, which matters for FIND. |
-| Other | none | Prints `n/a`. |
+| `IMPL` | tên phương án, danh sách cách nhau dấu phẩy, hoặc `all` | `all` |
+| `SCENARIO` | tên file trong `bench/refs/`, danh sách, hoặc `all` | `all` |
+| `CACHE` | `warm` (chạy làm nóng 1 lần, không ghi) hoặc `cold` (xoá cache OS trước mỗi lần, cần `sudo -n`) | `warm` |
+| `RUNS` | số lần đo | dump 1, find 5 |
+| `LABEL` | tên cho một cấu hình, tách riêng file archive và dòng trong báo cáo | trống |
 
-## Build
-
-Requires Java 25 (the current LTS release) and Maven.
-
-```bash
-mvn clean package
-```
-
-## WRITE
+Cấu hình đi qua biến môi trường, ví dụ thử row group nhỏ hơn:
 
 ```bash
-java -cp target/parquet-profile.jar flows/Dump.java
+make bench IMPL=java-parquet-duckdb PARQUET_ROW_GROUP_ROWS=50000 LABEL=rg50k
 ```
 
-```text
-=== DUMP ===
-Source           : Oracle
-Output           : <absolute path>/data/transactions.parquet
-Rows             : <rows>
-Wall Time        : <seconds>
-CPU Time         : <seconds>
-Peak CPU         : <cores>
-Peak Process RAM : <size>
-Peak JVM Heap    : <size>
-File Size        : <size>
-Max Heap         : <size>
-Fetch Size       : 1,000
-Table Passes     : 1
-Chart            : <path>
+## Kết quả
+
+```
+results/REPORT.md      ← bảng so sánh, tự tạo lại sau mỗi lần chạy
+results/results.csv    ← mỗi lần đo một dòng, chỉ ghi thêm
+results/runs/<impl>/<thao tác>-<kịch bản>-<thời điểm>-<lần>/
+    metrics.json  output.log  result.jsonl
+data/<impl>[-<label>]/YYYY-MM-DD.<ext>   ← mỗi ngày một file
 ```
 
-Progress is printed every 500,000 rows. The file is written to `transactions.parquet.tmp` and
-renamed only after the writer closed successfully. A failed run deletes the temp file and leaves any
-previous `transactions.parquet` untouched.
+Trong `REPORT.md`, mỗi (thao tác, kịch bản, cache, phương án, nhãn) lấy lần bench gần nhất: thời gian
+là trung vị, RAM là giá trị lớn nhất, ô tốt nhất của mỗi cột in đậm. Đo số liệu thật trên Linux với
+giới hạn giống pod; RSS trên macOS có thể thấp hơn thực tế khi máy thiếu RAM.
 
-Set the heap for the row-group buffer, see [Row groups](#row-groups):
+## Cấu trúc
 
-```bash
-java -Xmx4g -cp target/parquet-profile.jar flows/Dump.java
+```
+Makefile
+bench/bench.py          runner: đo, ghi CSV, tạo REPORT.md
+bench/refs/*.txt        kịch bản FIND do make seed sinh ("missing*" phải trả 0 dòng), không commit
+testdata/golden.py      sinh golden.sql (bảng ARCHIVE_GOLDEN) và golden.jsonl (kết quả mong đợi)
+impl/java/              Maven
+  common/               Cli, OracleSource, DaySplitter, Lookup, Row, RowCursor, Jsonl, Bytes, Settings,
+                        Archive (interface)
+  archive/              mỗi phương án 1 file + Archives (đăng ký)
+impl/go/
+  common/               giống Java
+  archive/              mỗi phương án 1 file + registry.go
+seed/seed.sh            seed, clean, archives (gọi qua make)
+seed/gen/               bộ sinh dữ liệu ngẫu nhiên (Go)
+docs/                   báo cáo cũ
 ```
 
-Every successful WRITE also creates a chart `<name>-profile-<timestamp>.html` in the current
-directory. It is one self-contained file showing CPU use and memory over time. Open it in a browser; hover to read values
-at a moment, or expand the data table. Long runs are merged into at most 800 points: memory keeps the
-highest value of each point, CPU both the highest and the average value, so peaks stay visible.
+### Thêm một phương án
 
-On macOS, RSS can drop below JVM heap while the process waits for Oracle, because the OS compresses
-or swaps idle pages and `ps` stops counting them. That also means Peak Process RAM can read low on a
-machine under memory pressure, so use Linux for RAM figures.
+1. Viết một file trong `impl/<ngôn ngữ>/.../archive/` cài đặt interface `Archive`: `dump` ghi các dòng
+   của **một ngày** (đã sắp theo `REFERENCE`) ra một file, `find` trả các bản ghi có key cần tìm trong
+   một file ngày. Chia theo ngày và lọc theo timestamp là việc của phần chung.
+2. Thêm một dòng vào `Archives.java` hoặc `registry.go`.
+3. `make test IMPL=<ngôn ngữ>-<tên>`; test hợp đồng tự chạy cho phương án mới.
 
-## FIND
+### Hợp đồng chung
 
-FIND has two separate flows in `flows/`. They are outside `src/main/java`, so they run straight from
-source without a build. The jar is only on the classpath for the shared classes and DuckDB. Changes
-under `src/main/java` still need `mvn clean package`.
-
-```bash
-# Find one reference
-java -Dparquet.output=data/transactions-10m.parquet -cp target/parquet-profile.jar \
-     flows/FindOne.java TXN202610270052391827
-
-# Find many: list them, or use @file with one reference per line
-java -Dparquet.output=data/transactions-10m.parquet -cp target/parquet-profile.jar \
-     flows/FindMany.java @refs.txt
+```
+<cli> list                                                    → "<tên>\t<đuôi file>" mỗi dòng
+<cli> dump --impl NAME --archive DIR                              → dòng cuối {"rows":N}
+<cli> find --impl NAME --archive DIR --refs LOOKUPS --out OUT    → dòng cuối {"found":N}
 ```
 
-`java File.java` compiles inside the measured process, which inflates Peak Process RAM and Peak JVM
-Heap. For memory figures compile first:
+`DIR` chứa mỗi ngày một file `YYYY-MM-DD.<đuôi>`. DUMP ghi từng ngày ra `.tmp` rồi mới đổi tên, nên
+một lần dump lỗi không làm hỏng ngày đã lưu.
 
-```bash
-javac -cp target/parquet-profile.jar -d target/flows flows/*.java
-java -Dparquet.output=data/transactions-10m.parquet -cp target/flows:target/parquet-profile.jar \
-     FindOne TXN202610270052391827
-```
+`LOOKUPS` mỗi dòng một `REFERENCE,YYYY-MM-DD HH:MM:SS.ffffff`. FIND mở file của ngày trong timestamp,
+tìm key, và chỉ trả bản ghi khi `CREATED_AT` trùng đúng timestamp. Ngày không có file thì không có kết
+quả.
 
-FindMany runs one `WHERE reference IN (...)` query for all references, so there is no time per
-reference; Per Reference is Wall Time divided by the reference count. Results are printed for up to 20
-references; the chart always lists them all.
+FIND ghi `OUT` dạng JSON Lines, sắp theo `reference`, **giống từng byte** với
+`json.dumps(record, ensure_ascii=False, separators=(",", ":"))` của Python: khoá theo thứ tự
+`id, reference, created_at, text_01..text_70`, `created_at` dạng `YYYY-MM-DD HH:MM:SS.ffffff`,
+NULL là `null`.
 
-### Memory
+### Test đúng/sai
 
-Peak Process RAM of FIND is mostly DuckDB decompressing wide text columns. These properties control it.
+`testdata/golden.py` sinh 300 dòng có ca biên: NULL, chuỗi rỗng (Oracle lưu thành NULL), ký tự cần
+escape, ký tự điều khiển, tiếng Việt, emoji 4 byte, U+2028, chuỗi 1000 byte, ID = int64 max, thời
+điểm trước 1970 và năm 9999, reference có thứ tự byte khác thứ tự ngôn ngữ. 90% số dòng thuộc một ngày,
+phần còn lại rải ra nhiều ngày, nên vừa có nhiều file ngày vừa có một file ngày lớn.
 
-| Property | Default | Effect |
+Test của mỗi ngôn ngữ dump bảng này, find mọi key + timestamp cùng các lookup phải trả rỗng (key không
+có, đúng key sai giờ, đúng key sai ngày, ngày không có file), rồi so kết quả với `golden.jsonl` từng
+dòng. `make test` đặt row group / lô / block rất nhỏ để file ngày lớn có nhiều row group, lô và block.
+
+## Biến môi trường
+
+| Biến | Mặc định | Dùng cho |
 | --- | --- | --- |
-| `duckdb.threads` | `4` | Fewer threads use less memory and take longer. DuckDB's own default is one per core. |
-| `duckdb.external-file-cache` | `false` | DuckDB's cache of compressed file blocks. It can help repeated queries on one connection. |
+| `ORACLE_URL` | `jdbc:oracle:thin:@//localhost:1521/FREEPDB1` | mọi phương án (Go đọc cùng dạng URL) |
+| `ORACLE_USERNAME` / `ORACLE_PASSWORD` | `benchmark` | tài khoản test cục bộ, không commit mật khẩu thật |
+| `ORACLE_TABLE` | `ARCHIVE_PROFILE_DATA` | bảng nguồn |
+| `ORACLE_QUERY` | trống | thay câu SELECT; cùng cột, theo thứ tự (ngày của `CREATED_AT`, `REFERENCE`) |
+| `ORACLE_REPEAT` | `1` (Makefile đặt `100`) | đọc bảng N lần thành một ngày, xem "Dữ liệu" |
+| `ORACLE_FETCH_SIZE` | `1000` | số dòng mỗi lượt đọc |
+| `ORACLE_TEXT_COLUMNS` | `70` | số cột `TEXT_nn` |
+| `PARQUET_COMPRESSION` | `ZSTD` | các phương án Parquet |
+| `PARQUET_ROW_GROUP_ROWS` | `250000` | các phương án Parquet |
+| `PARQUET_ROW_GROUP_BYTES` | 2 GiB | java-parquet-duckdb |
+| `DUCKDB_THREADS` | `4` | các phương án DuckDB |
+| `DUCKDB_EXTERNAL_FILE_CACHE` | `false` | các phương án DuckDB |
+| `ARROW_BATCH_ROWS` | `1024` | số dòng mỗi lô Arrow |
+| `BLOCK_BYTES` | `1048576` | kích thước block trước khi nén (rowblock) |
+| `BLOCK_ZSTD_LEVEL` | `3` | mức nén ZSTD (rowblock) |
+| `JAVA_OPTS` | trống | tham số JVM, ví dụ `-Xmx2g` |
 
-FIND always reads every column, because the archive must restore complete records.
+Các biến ảnh hưởng tới số đo được ghi kèm mỗi lần chạy, trong cột `settings` của CSV.
 
-`SET memory_limit` is not a fix: the query needs this memory and fails with Out of Memory below it.
+## Phương án hiện có
 
-Each run creates `<name>-find-one-profile-<timestamp>.html` or
-`<name>-find-many-<count>-profile-<timestamp>.html` in the current directory, with the lookup results
-and the CPU and memory timeline. A `.jsonl` file with the same name holds the complete records, one
-JSON object per line with every column in file order and `null` for NULL. The chart and FindMany's
-terminal output show only a few columns; FindOne prints every column. Wall Time, CPU Time and RAM
-cover reading the records into memory, not writing this file, which FindMany reports as Export Time. Samples are taken every 100 ms, so a short run shows only a couple of
-timeline points.
+Ba kiểu lưu, mỗi kiểu có bản Java và bản Go (tên `java-…` / `go-…`):
 
-The measured section covers preparing and running the query and reading every column of the match.
-Opening DuckDB happens before it, because loading the native library from the jar costs far more
-than the lookup itself. Wall Time and CPU Time therefore exclude that startup, but Peak Process RAM
-still includes it because RSS covers the whole process.
+| Phương án | Kiểu lưu | Nén | Tìm một key trong file ngày |
+| --- | --- | --- | --- |
+| `parquet-duckdb` | cột, có mã hoá (dictionary, RLE…) | ZSTD | DuckDB: `WHERE reference IN (...)`, bỏ qua row group nhờ min/max |
+| `arrow-zstd` | cột, Arrow IPC, không mã hoá | ZSTD từng buffer | index lô → giải nén đúng lô `ARROW_BATCH_ROWS` dòng chứa key |
+| `rowblock-zstd` | dòng, block nhị phân | ZSTD từng block | index block → giải nén đúng block `BLOCK_BYTES` chứa key |
 
-## Local Oracle for testing
+Ghi Parquet: Java dùng parquet-java (chép thẳng từ JDBC vào cột), Go dùng parquet-go; cả hai đọc bằng
+DuckDB nhúng. Arrow: arrow-java và arrow-go. Rowblock: tự viết, ZSTD qua zstd-jni và klauspost/compress.
 
-`docker-compose.yml` starts Oracle Free with 100,000 generated rows from `docker/seed.sql`. It is for
-smoke tests, not for benchmark numbers. It needs about 6 GB on the host for `data/oracle`.
+Định dạng `arrow-zstd` và `rowblock-zstd` giống hệt nhau giữa Java và Go, nên mỗi bên đọc được file của
+bên kia.
 
-```bash
-docker compose up -d
-docker compose logs -f oracle   # wait for "DATABASE IS READY TO USE"
+### `arrow-zstd`: Arrow IPC + index lô
 
-java -Dparquet.row-group-rows=20000 -cp target/parquet-profile.jar flows/Dump.java
-java -cp target/parquet-profile.jar flows/FindOne.java TXN000000023757
-
-docker compose down             # keeps data/oracle; delete it to re-seed
+```
+[file Arrow IPC đầy đủ, nén ZSTD]
+[index]   uvarint số lô | mỗi lô: uvarint độ dài + reference đầu tiên của lô
+[trailer] uint64 LE độ dài phần Arrow | "ARCHARW1"
 ```
 
-### 10M rows by re-reading a smaller table
+Arrow không lưu min/max, nên index nằm sau phần Arrow. Phần Arrow vẫn là file Arrow chuẩn: cắt
+file ở độ dài trong trailer là mọi công cụ Arrow đọc được.
 
-`oracle.repeat` reads the whole table that many times over one connection and writes all passes into
-one Parquet file. 100 passes over the 100,000 seeded rows give 10,000,000 rows, each one really read
-through JDBC, with Oracle running the query and `ORDER BY REFERENCE` on every pass.
+### `rowblock-zstd`: block theo dòng + index thưa
 
-```bash
-java -Xmx4g -Doracle.repeat=100 \
-     -Dparquet.output=data/transactions-10m.parquet \
-     -cp target/parquet-profile.jar flows/Dump.java
-
-java -Dparquet.output=data/transactions-10m.parquet -cp target/parquet-profile.jar \
-     flows/FindOne.java 0050TXN000000023757
+```
+[block 0][block 1]...      mỗi block là một frame ZSTD chứa các dòng liên tiếp
+  dòng = int64 LE id | int64 LE created_at (micro giây) | uvarint độ dài + reference |
+         mỗi cột text: uvarint (độ dài + 1, 0 là NULL) + byte UTF-8
+[index]   uvarint số block | uvarint số cột text |
+          mỗi block: uvarint độ dài + reference đầu | uvarint offset | uvarint cỡ nén | uvarint cỡ gốc
+[trailer] uint64 LE vị trí index | "ARCHBLK1"
 ```
 
-To keep the file sorted and unique, the SQL prefixes `REFERENCE` with the 4-digit pass number and
-adds `pass * 1,000,000,000` to `ID`, so `REFERENCE` is 4 characters longer than the source value.
-Java still does not sort. The table's `ID` values must stay below that step.
+## Dữ liệu
 
-Limits of this simulation:
+`make seed` bật Oracle Free trong Docker (datafile ở `data/oracle`) và sinh **đúng 100.000 dòng
+ngẫu nhiên** vào `ARCHIVE_PROFILE_DATA`, chèn không theo thứ tự `REFERENCE`. Mất khoảng 1,5 phút,
+chiếm khoảng 2,3 GB trong Oracle (dòng trung bình khoảng 21 KB, bằng bộ dữ liệu cũ).
 
-- After the first pass Oracle serves blocks from its buffer cache, and it sorts 100,000 rows many
-  times rather than 10,000,000 once. Wall Time is therefore not what a real 10M table would show.
-- Row groups contain the same text repeatedly, so size and ZSTD CPU reflect the seeded data only.
+- Bảng **đã có dữ liệu thì seed không làm gì**. Muốn sinh bộ mới phải xoá trước bằng `make seed-clean`.
+  Lệnh này hỏi xác nhận (bỏ qua bằng `YES=1`), rồi xoá container, `data/` (Oracle và mọi archive, vì
+  archive sinh từ dữ liệu cũ) và `bench/refs`.
+- Mỗi lần sinh in ra `SEED=...`; `SEED=<số> make seed` sinh lại đúng bộ đó.
+- Toàn bộ dòng thuộc **một ngày** (2026-11-14), `CREATED_AT` ngẫu nhiên trong ngày, chính xác tới micro
+  giây. `REFERENCE` có dạng `FT26` + 12 chữ số, duy nhất.
+- Kích thước giống bộ dữ liệu cũ: mỗi cột text 100–499 byte, `TEXT_02` NULL khoảng 1/3, `TEXT_03` là
+  ghi chú ngắn. Nội dung thì ngẫu nhiên: mỗi cột mở đầu theo một kiểu cố định theo vị trí (họ tên, số
+  tài khoản, số tiền, mã, địa chỉ, trạng thái, metadata JSON), phần còn lại là câu ghép từ tiếng Việt
+  ngẫu nhiên. Nội dung không lặp lại nên nén kém hơn dữ liệu cũ, gần với dữ liệu thật hơn.
 
-### 10M rows without storing them
+**Một ngày 10M dòng** = đọc bảng 100k dòng `ORACLE_REPEAT` lần (Makefile mặc định 100). Mỗi lượt thêm số
+lượt 4 chữ số vào đầu `REFERENCE` và cộng `lượt × 1.000.000.000` vào `ID`, nên file ngày vẫn sắp xếp và
+không trùng. Oracle chạy truy vấn và `ORDER BY` mỗi lượt, nhưng từ lượt 2 đọc từ buffer cache.
+`make seed-archives IMPL=...` dump ngày này (fetch 10000) vào `data/<impl>/2026-11-14.<đuôi>`.
 
-`docker/generator.sql` creates the view `ARCHIVE_PROFILE_GEN`, which generates 10,000,000 rows at
-query time. Oracle stores nothing, and the rows arrive in `REFERENCE` order without a sort, so the
-only disk needed is for the Parquet file.
+Seed cũng ghi `bench/refs/` cho đúng `ORACLE_REPEAT` lúc seed: `one` (1 lookup), `many-1000` (1000
+lookup ngẫu nhiên) và `missing` (6 lookup phải trả rỗng: trước đầu file, sau cuối file, key không có,
+đúng key sai giờ, đúng key ngày không có file). Đổi `ORACLE_REPEAT` thì phải seed lại.
 
-```bash
-docker exec -i parquet-profile-oracle sqlplus -s benchmark/benchmark@//localhost:1521/FREEPDB1 < docker/generator.sql
+**Dung lượng ổ đĩa:** dữ liệu ngẫu nhiên chỉ nén được khoảng 3 lần. Chạy thử 200k dòng cho ra khoảng
+1,35 GB mỗi phương án, nên **một ngày 10M dòng tốn khoảng 65 GB cho mỗi phương án**, khoảng 400 GB cho
+cả 6. Trên máy ít chỗ trống, hãy giảm ngày (ví dụ `ORACLE_REPEAT=10` khi seed và khi dump, khoảng 6,7 GB
+mỗi phương án), hoặc bench từng phương án rồi xoá `data/<impl>` trước khi sang phương án tiếp theo.
 
-java -Xmx4g -Doracle.query='SELECT * FROM ARCHIVE_PROFILE_GEN' \
-     -Dparquet.output=data/transactions-10m.parquet \
-     -cp target/parquet-profile.jar flows/Dump.java
-```
+## Giới hạn
 
-This measures the Java side at full scale, which is what CPU Time and Peak Process RAM report. It
-does not represent Oracle read or sort time, and the generated text is repetitive, so real data
-will compress worse: expect a larger file and more ZSTD CPU.
-
-## Configuration
-
-Defaults live in `src/main/resources/application.properties`. Any key can be overridden with
-`-Dkey=value` without rebuilding.
-
-| Property | Default | Meaning |
-| --- | --- | --- |
-| `oracle.url` | `jdbc:oracle:thin:@//localhost:1521/FREEPDB1` | JDBC URL, defaults to the local Docker Oracle |
-| `oracle.username` / `oracle.password` | `benchmark` | Local test account, never commit real values |
-| `oracle.table` | `ARCHIVE_PROFILE_DATA` | Source table |
-| `oracle.query` | empty | Replaces the generated SELECT; same columns, in `REFERENCE` order |
-| `oracle.repeat` | `1` | Reads the table this many times into one file, 1 to 9999 |
-| `oracle.fetch-size` | `1000` | Rows per JDBC round trip |
-| `oracle.text-columns` | `70` | Number of `TEXT_nn` columns |
-| `parquet.output` | `data/transactions.parquet` | File written by WRITE and read by FIND |
-| `parquet.compression` | `ZSTD` | Parquet codec name |
-| `parquet.row-group-rows` | `250000` | Row-group row limit |
-| `parquet.row-group-bytes` | `2147483648` | Row-group buffer limit |
-| `progress.interval` | `500000` | Rows between progress lines |
-| `duckdb.threads` | `4` | DuckDB threads for FIND |
-| `duckdb.external-file-cache` | `false` | DuckDB file block cache for FIND |
-
-Environment variables take priority for credentials:
-
-```bash
-export ORACLE_URL='jdbc:oracle:thin:@//db-host:1521/SERVICE'
-export ORACLE_USERNAME='...'
-export ORACLE_PASSWORD='...'
-```
-
-The SQL is built in `OracleReader.selectSql()` and the Parquet schema in
-`ParquetArchiveWriter.schema()`. Change both together if the real table differs: columns are read by
-position.
-
-## Implementation decisions
-
-### Streaming without row objects
-
-`ParquetWriter<ResultSet>` uses a small custom `WriteSupport`, so the `ResultSet` itself is the
-record type and `parquetWriter.write(resultSet)` copies the current row straight into Parquet's
-column buffers. Avro and the example `Group` API were rejected because both would allocate a
-temporary record per row. Nothing materializes the dataset. What stays in memory is the JDBC fetch
-buffer, the current row's strings and the Parquet row-group buffer.
-
-`LocalOutputFile` writes through `java.nio`, without Hadoop's filesystem layer. Hadoop remains only
-because `parquet-hadoop` needs `Configuration` and its compression interfaces.
-
-### Row groups
-
-`ParquetWriter` flushes a row group when **either** limit is reached:
-
-- `withRowGroupRowCountLimit` is a real row limit, checked on every record.
-- `withRowGroupSize` is a byte limit on the writer's buffered size, checked only periodically. The
-  size is an estimate, so row groups are not exactly this many bytes.
-
-A row group stays on the Java heap until it is flushed, and the buffered pages are already
-compressed. So 250,000 rows of 10 KB compressed data would need about 2.5 GB. The default 2 GiB
-byte limit keeps that bounded, which means **wide rows can produce row groups smaller than 250,000
-rows**. Raise `parquet.row-group-bytes` and `-Xmx` together if exactly 250,000 rows matters.
-
-The default `java -jar` heap is a quarter of physical RAM. Peak JVM Heap and Peak Process RAM depend
-directly on these settings, so report them with the results.
-
-### Ordering
-
-Oracle sorts; Java writes in arrival order and never re-sorts. `ALTER SESSION SET NLS_SORT = BINARY`
-runs first because the thin driver derives the session language from the JVM locale, and some
-languages imply a linguistic sort. Parquet min/max statistics use byte order, so a linguistic order
-would make row-group ranges overlap.
-
-### Types
-
-| Oracle | Parquet |
-| --- | --- |
-| `ID NUMBER(19)` | required `INT64` |
-| `REFERENCE VARCHAR2` | required `BINARY (STRING)` |
-| `CREATED_AT TIMESTAMP` | required `INT64 (TIMESTAMP(MICROS, isAdjustedToUTC=false))` |
-| `TEXT_nn VARCHAR2` | optional `BINARY (STRING)` |
-
-`CREATED_AT` is read as `LocalDateTime`, so the JVM time zone cannot shift it. Fractional seconds
-beyond microseconds are truncated. `ID` values above `Long.MAX_VALUE` fail the run rather than being
-silently altered.
-
-## Important limitations
-
-- Oracle server CPU and RAM are **not** measured. CPU Time is the Java process only.
-- Network time contributes to Wall Time but not directly to CPU Time.
-- `ORDER BY REFERENCE` is performed by Oracle. Without a usable index on `REFERENCE`, Oracle sorts
-  all wide rows in its TEMP tablespace before the first row arrives, which can dominate Wall Time
-  and needs a lot of TEMP space.
-- A long-running query needs enough undo retention, or it can fail with `ORA-01555`.
-- JVM heap alone is insufficient for FIND because DuckDB allocates native memory. Use Peak Process RAM.
-- RSS is measured for the whole process, so it includes the JVM's own baseline.
-- Parquet row-group sizing is partly byte-based, see [Row groups](#row-groups).
-- FIND results are affected by the OS filesystem cache, DuckDB initialization, JVM warmup and JIT.
-  Repeated runs may represent warm-cache behavior, and there is no cache control here. Run the same
-  lookup several times and compare references near the start, middle and end of the file by hand.
-- WRITE needs free disk space for the whole Parquet file, as `.tmp` until it is renamed.
+- CPU và RAM của Oracle không được đo.
+- Không có index trên `REFERENCE` thì Oracle phải sắp xếp toàn bộ trong TEMP trước khi trả dòng đầu.
+- Truy vấn dài cần đủ undo retention, nếu không sẽ gặp `ORA-01555`.
+- FIND chịu ảnh hưởng của cache hệ điều hành; dùng `CACHE=cold` để so sánh lần đọc đầu.
