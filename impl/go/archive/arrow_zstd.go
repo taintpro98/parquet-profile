@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -22,8 +23,10 @@ import (
 // phần Arrow là một index nhỏ ghi reference đầu tiên của từng lô; FIND tìm nhị phân trong index rồi
 // chỉ giải nén lô chứa key. Định dạng giống hệt bản Java (xem README).
 //
-// Settings: ARROW_BATCH_ROWS (1024).
+// Settings: ARROW_BATCH_ROWS (10000: mỗi lô dump 10.000 dòng thành một record batch).
 type ArrowZstd struct{}
+
+func init() { Register("arrow-zstd", func() common.Archive { return ArrowZstd{} }) }
 
 const arrowMagic = "ARCHARW1"
 
@@ -56,7 +59,7 @@ func (c *countingWriter) Write(p []byte) (int, error) {
 // ---- WRITE ----
 
 func (ArrowZstd) Dump(rows common.RowCursor, out string) (int64, error) {
-	batchRows := int(common.Int("ARROW_BATCH_ROWS", 1024))
+	batchRows := int(common.Int("ARROW_BATCH_ROWS", 10_000))
 	schema := arrowSchema(rows.TextColumns())
 	f, err := os.Create(out)
 	if err != nil {
@@ -184,7 +187,8 @@ func (ArrowZstd) Find(file string, references []string) ([]common.Row, error) {
 	textColumns := schema.NumFields() - 3
 	var found []common.Row
 	for _, b := range batches {
-		rec, err := reader.RecordBatch(b)
+		// RecordBatchAt trả lô mới mỗi lần gọi; phải Release để trả bộ nhớ đã giải nén.
+		rec, err := reader.RecordBatchAt(b)
 		if err != nil {
 			return nil, err
 		}
@@ -197,19 +201,21 @@ func (ArrowZstd) Find(file string, references []string) ([]common.Row, error) {
 			}
 			row := common.Row{
 				ID:        ids.Value(i),
-				Reference: refs.Value(i),
+				Reference: strings.Clone(refs.Value(i)),
 				CreatedAt: time.UnixMicro(int64(times.Value(i))).UTC(),
 				Texts:     make([]*string, textColumns),
 			}
 			for c := 0; c < textColumns; c++ {
 				col := rec.Column(3 + c).(*array.String)
 				if col.IsValid(i) {
-					text := col.Value(i)
+					// Value trỏ thẳng vào buffer của cả lô; sao chép để không giữ lô sống.
+					text := strings.Clone(col.Value(i))
 					row.Texts[c] = &text
 				}
 			}
 			found = append(found, row)
 		}
+		rec.Release()
 	}
 	return found, nil
 }

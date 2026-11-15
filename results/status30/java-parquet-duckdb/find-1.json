@@ -1,0 +1,61 @@
+{
+  "dataset": "status30",
+  "impl": "java-parquet-duckdb",
+  "variant": "",
+  "op": "find",
+  "cache": "warm",
+  "time": "2026-11-14 16:04",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g",
+  "archive": "data/java-parquet-duckdb-status",
+  "summary": {
+    "runs": 3,
+    "wall_s": 1.312,
+    "cpu_s": 0.998,
+    "peak_rss_mb": 299,
+    "file_mb": null,
+    "rows": null,
+    "found": 1,
+    "expected": 1,
+    "ok": true,
+    "checked": null,
+    "matched": null
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 1.325,
+      "cpu_s": 0.998,
+      "peak_rss_mb": 291,
+      "file_mb": null,
+      "rows": null,
+      "found": 1,
+      "expected": 1,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 1.312,
+      "cpu_s": 1.002,
+      "peak_rss_mb": 299,
+      "file_mb": null,
+      "rows": null,
+      "found": 1,
+      "expected": 1,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 1.225,
+      "cpu_s": 0.976,
+      "peak_rss_mb": 297,
+      "file_mb": null,
+      "rows": null,
+      "found": 1,
+      "expected": 1,
+      "ok": true
+    }
+  ],
+  "n": 1,
+  "note": "Đo trước khi có kiểm toàn vẹn với Oracle (bộ key cố định lúc seed)."
+}

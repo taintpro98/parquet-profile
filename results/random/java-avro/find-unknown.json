@@ -1,0 +1,68 @@
+{
+  "dataset": "random",
+  "impl": "java-avro",
+  "variant": "",
+  "op": "find-unknown",
+  "n": null,
+  "cache": "warm",
+  "repeat": 10,
+  "sample": "df463afe",
+  "time": "2026-11-14 21:04",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_REPEAT=10 ORACLE_TABLE=ARCHIVE_RANDOM",
+  "archive": "data/java-avro-random",
+  "summary": {
+    "runs": 3,
+    "wall_s": 1.261,
+    "cpu_s": 0.925,
+    "peak_rss_mb": 102,
+    "file_mb": null,
+    "rows": null,
+    "found": 0,
+    "expected": 0,
+    "checked": null,
+    "matched": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 1.295,
+      "cpu_s": 0.944,
+      "peak_rss_mb": 102,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 1.259,
+      "cpu_s": 0.916,
+      "peak_rss_mb": 102,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 1.261,
+      "cpu_s": 0.925,
+      "peak_rss_mb": 102,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    }
+  ]
+}

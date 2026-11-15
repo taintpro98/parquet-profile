@@ -27,10 +27,10 @@ func OracleConfigFromEnv() OracleConfig {
 		URL:              String("ORACLE_URL", "jdbc:oracle:thin:@//localhost:1521/FREEPDB1"),
 		Username:         String("ORACLE_USERNAME", "benchmark"),
 		Password:         String("ORACLE_PASSWORD", "benchmark"),
-		Table:            String("ORACLE_TABLE", "ARCHIVE_PROFILE_DATA"),
+		Table:            String("ORACLE_TABLE", "ARCHIVE_RANDOM"),
 		Query:            String("ORACLE_QUERY", ""),
 		Repeat:           int(Int("ORACLE_REPEAT", 1)),
-		FetchSize:        int(Int("ORACLE_FETCH_SIZE", 1000)),
+		FetchSize:        int(Int("ORACLE_FETCH_SIZE", 10_000)),
 		TextColumns:      int(Int("ORACLE_TEXT_COLUMNS", 70)),
 		ProgressInterval: Int("PROGRESS_INTERVAL", 500_000),
 	}

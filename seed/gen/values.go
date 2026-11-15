@@ -91,11 +91,30 @@ var heads = []func(*rand.Rand) string{
 	},
 }
 
+// statusColumn: ở chế độ status, 20% số cột (14/70: các cột có số thứ tự tận cùng 0 và 5) là cột
+// trạng thái ít giá trị, như status, kênh, loại giao dịch, chi nhánh, tiền tệ.
+func statusColumn(column int) bool {
+	d := column % 10
+	return seedMode == "status" && (d == 0 || d == 5)
+}
+
+// statusValue chọn trong 2–20 giá trị của cột, lệch về vài giá trị đầu (phần lớn giao dịch SUCCESS).
+func statusValue(r *rand.Rand, column int) string {
+	cardinality := []int{2, 3, 5, 8, 12, 20}[column%6]
+	f := r.Float64()
+	i := int(float64(cardinality) * f * f * f) // lệch mạnh về 0
+	prefixes := []string{"STATUS", "CHANNEL", "TXN_TYPE", "BRANCH", "CURRENCY", "PRODUCT", "SEGMENT"}
+	return fmt.Sprintf("%s_%02d", prefixes[column%len(prefixes)], i)
+}
+
 // textValue sinh giá trị cột TEXT_nn (column tính từ 1), hoặc ok=false cho NULL.
 //
 // Kích thước giống bộ dữ liệu cũ (khoảng 21 KB mỗi dòng): mỗi cột 100–499 byte; TEXT_02 NULL
 // khoảng 1/3 số dòng; TEXT_03 là ghi chú ngắn khoảng 30 byte.
 func textValue(r *rand.Rand, column int) (value string, ok bool) {
+	if statusColumn(column) {
+		return statusValue(r, column), true
+	}
 	switch column {
 	case 2:
 		if r.IntN(3) == 0 {

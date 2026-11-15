@@ -2,8 +2,9 @@
 data/
 impl/java/target/
 impl/go/bin/
-results/runs/
+results/*/*/logs/
 /*-profile-*.html
 /*-profile-*.jsonl
 seed/gen/gen
-bench/refs/
+bench/samples/
+__pycache__/

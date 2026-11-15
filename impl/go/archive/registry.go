@@ -1,3 +1,5 @@
+// Package archive holds the Go storage options. Each option is one file that registers itself in
+// init(), so adding an option means adding exactly one file.
 package archive
 
 import (
@@ -7,23 +9,26 @@ import (
 	"parquetprofile/common"
 )
 
-// All lists every Go option by name. A new option is one file in this package plus one line here.
-var All = map[string]func() common.Archive{
-	"parquet-duckdb": func() common.Archive { return ParquetDuckdb{} },
-	"arrow-zstd":     func() common.Archive { return ArrowZstd{} },
-	"rowblock-zstd":  func() common.Archive { return RowblockZstd{} },
+var all = map[string]func() common.Archive{}
+
+// Register is called from each option file's init().
+func Register(name string, factory func() common.Archive) {
+	if _, dup := all[name]; dup {
+		panic("duplicate option " + name)
+	}
+	all[name] = factory
 }
 
 func Get(name string) (common.Archive, error) {
-	if make, ok := All[name]; ok {
-		return make(), nil
+	if factory, ok := all[name]; ok {
+		return factory(), nil
 	}
 	return nil, fmt.Errorf("unknown option %s, known: %v", name, Names())
 }
 
 func Names() []string {
-	var names []string
-	for name := range All {
+	names := make([]string, 0, len(all))
+	for name := range all {
 		names = append(names, name)
 	}
 	sort.Strings(names)

@@ -1,0 +1,42 @@
+{
+  "dataset": "status",
+  "impl": "go-parquet-duckdb",
+  "variant": "",
+  "op": "dump",
+  "n": null,
+  "cache": null,
+  "repeat": 10,
+  "sample": null,
+  "time": "2026-11-14 21:17",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_REPEAT=10 ORACLE_TABLE=ARCHIVE_STATUS",
+  "archive": "data/go-parquet-duckdb-status",
+  "summary": {
+    "runs": 1,
+    "wall_s": 272.696,
+    "cpu_s": 160.369,
+    "peak_rss_mb": 2354,
+    "file_mb": 5410,
+    "rows": 1000000,
+    "found": null,
+    "expected": null,
+    "checked": null,
+    "matched": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 272.696,
+      "cpu_s": 160.369,
+      "peak_rss_mb": 2354,
+      "file_mb": 5410,
+      "rows": 1000000,
+      "found": null,
+      "expected": null,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    }
+  ]
+}

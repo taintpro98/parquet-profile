@@ -38,6 +38,11 @@ public final class RowblockZstd implements Archive {
     private record Block(String first, long offset, int size, int rawSize) {}
 
     @Override
+    public String name() {
+        return "rowblock-zstd";
+    }
+
+    @Override
     public String extension() {
         return "rbk";
     }

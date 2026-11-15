@@ -1,0 +1,7 @@
+com.mbbank.archive.archive.ArrowZstd
+com.mbbank.archive.archive.AvroStore
+com.mbbank.archive.archive.OrcStore
+com.mbbank.archive.archive.ParquetDuckdb
+com.mbbank.archive.archive.ParquetLookup
+com.mbbank.archive.archive.RocksdbStore
+com.mbbank.archive.archive.RowblockZstd

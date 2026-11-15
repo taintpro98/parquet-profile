@@ -1,0 +1,68 @@
+{
+  "dataset": "status",
+  "impl": "java-orc",
+  "variant": "2m",
+  "op": "find",
+  "n": 1000,
+  "cache": "warm",
+  "repeat": 20,
+  "sample": "63599729",
+  "time": "2026-11-15 03:01",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g",
+  "archive": "data/java-orc-status-2m",
+  "summary": {
+    "runs": 3,
+    "wall_s": 33.417,
+    "cpu_s": 41.302,
+    "peak_rss_mb": 1775,
+    "file_mb": null,
+    "rows": null,
+    "found": 1000,
+    "expected": 1000,
+    "checked": 1000,
+    "matched": 1000,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 33.177,
+      "cpu_s": 41.266,
+      "peak_rss_mb": 1598,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "checked": 1000,
+      "matched": 1000,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 33.565,
+      "cpu_s": 41.315,
+      "peak_rss_mb": 1775,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "checked": 1000,
+      "matched": 1000,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 33.417,
+      "cpu_s": 41.302,
+      "peak_rss_mb": 1531,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "checked": 1000,
+      "matched": 1000,
+      "ok": true
+    }
+  ]
+}

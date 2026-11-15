@@ -1,0 +1,68 @@
+{
+  "dataset": "random",
+  "impl": "go-parquet-duckdb",
+  "variant": "",
+  "op": "find",
+  "n": 1000,
+  "cache": "warm",
+  "repeat": 10,
+  "sample": "df463afe",
+  "time": "2026-11-14 19:48",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g",
+  "archive": "data/go-parquet-duckdb-random",
+  "summary": {
+    "runs": 3,
+    "wall_s": 50.081,
+    "cpu_s": 100.855,
+    "peak_rss_mb": 2422,
+    "file_mb": null,
+    "rows": null,
+    "found": 1000,
+    "expected": 1000,
+    "checked": 1000,
+    "matched": 1000,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 50.081,
+      "cpu_s": 100.855,
+      "peak_rss_mb": 2286,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "checked": 1000,
+      "matched": 1000,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 50.131,
+      "cpu_s": 100.99,
+      "peak_rss_mb": 2313,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "checked": 1000,
+      "matched": 1000,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 49.753,
+      "cpu_s": 50.807,
+      "peak_rss_mb": 2422,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "checked": 1000,
+      "matched": 1000,
+      "ok": true
+    }
+  ]
+}

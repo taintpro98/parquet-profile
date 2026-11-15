@@ -1,0 +1,61 @@
+{
+  "dataset": "random",
+  "impl": "java-rowblock-zstd",
+  "variant": "",
+  "op": "find",
+  "cache": "warm",
+  "time": "2026-11-14 15:50",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g",
+  "archive": "data/java-rowblock-zstd-random",
+  "summary": {
+    "runs": 3,
+    "wall_s": 1.511,
+    "cpu_s": 1.989,
+    "peak_rss_mb": 400,
+    "file_mb": null,
+    "rows": null,
+    "found": 1000,
+    "expected": 1000,
+    "ok": true,
+    "checked": null,
+    "matched": null
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 1.521,
+      "cpu_s": 1.989,
+      "peak_rss_mb": 400,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 1.511,
+      "cpu_s": 2.043,
+      "peak_rss_mb": 395,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 1.498,
+      "cpu_s": 1.976,
+      "peak_rss_mb": 400,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "ok": true
+    }
+  ],
+  "n": 1000,
+  "note": "Đo trước khi có kiểm toàn vẹn với Oracle (bộ key cố định lúc seed)."
+}

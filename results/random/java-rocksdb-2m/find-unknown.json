@@ -1,0 +1,68 @@
+{
+  "dataset": "random",
+  "impl": "java-rocksdb",
+  "variant": "2m",
+  "op": "find-unknown",
+  "n": null,
+  "cache": "warm",
+  "repeat": 20,
+  "sample": "77fa0313",
+  "time": "2026-11-15 00:05",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_REPEAT=20 ORACLE_TABLE=ARCHIVE_RANDOM",
+  "archive": "data/java-rocksdb-random-2m",
+  "summary": {
+    "runs": 3,
+    "wall_s": 0.545,
+    "cpu_s": 0.336,
+    "peak_rss_mb": 74,
+    "file_mb": null,
+    "rows": null,
+    "found": 0,
+    "expected": 0,
+    "checked": null,
+    "matched": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 0.55,
+      "cpu_s": 0.336,
+      "peak_rss_mb": 74,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 0.545,
+      "cpu_s": 0.35,
+      "peak_rss_mb": 74,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 0.473,
+      "cpu_s": 0.317,
+      "peak_rss_mb": 74,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    }
+  ]
+}

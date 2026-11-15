@@ -1,0 +1,58 @@
+{
+  "dataset": "random",
+  "impl": "go-arrow-zstd",
+  "variant": "",
+  "op": "find",
+  "scenario": "missing",
+  "cache": "warm",
+  "time": "2026-11-14 15:44",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g",
+  "archive": "data/go-arrow-zstd-random",
+  "summary": {
+    "runs": 3,
+    "wall_s": 1.19,
+    "cpu_s": 2.352,
+    "peak_rss_mb": 536,
+    "file_mb": null,
+    "rows": null,
+    "found": 0,
+    "expected": 0,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 1.198,
+      "cpu_s": 2.366,
+      "peak_rss_mb": 534,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 1.19,
+      "cpu_s": 2.351,
+      "peak_rss_mb": 534,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 1.188,
+      "cpu_s": 2.352,
+      "peak_rss_mb": 536,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "ok": true
+    }
+  ]
+}

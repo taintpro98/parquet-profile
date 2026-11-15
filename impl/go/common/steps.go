@@ -47,9 +47,12 @@ func Dump(archive Archive, source OracleConfig, dir string) (int64, error) {
 		tmp := file + ".tmp"
 		rows, err := archive.Dump(days, tmp)
 		if err == nil {
+			if info, statErr := os.Stat(file); statErr == nil && info.IsDir() {
+				os.RemoveAll(file) // một ngày là thư mục (RocksDB): rename không ghi đè thư mục
+			}
 			err = os.Rename(tmp, file)
 		}
-		os.Remove(tmp)
+		os.RemoveAll(tmp)
 		if err != nil {
 			return total, err
 		}

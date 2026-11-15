@@ -4,8 +4,14 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 
-/** One storage option. Each implementation lives in one file under the archive package. */
+/**
+ * One storage option. Each implementation is one file under the archive package and registers itself
+ * in META-INF/services/com.mbbank.archive.common.Archive (standard Java ServiceLoader).
+ */
 public interface Archive {
+
+    /** Option name, used as --impl and as part of the result folder (java-NAME). */
+    String name();
 
     /** File extension of the archive, without the dot. */
     String extension();

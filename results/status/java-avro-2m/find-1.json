@@ -1,0 +1,68 @@
+{
+  "dataset": "status",
+  "impl": "java-avro",
+  "variant": "2m",
+  "op": "find",
+  "n": 1,
+  "cache": "warm",
+  "repeat": 20,
+  "sample": "63599729",
+  "time": "2026-11-15 03:12",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g",
+  "archive": "data/java-avro-status-2m",
+  "summary": {
+    "runs": 3,
+    "wall_s": 1.402,
+    "cpu_s": 0.968,
+    "peak_rss_mb": 103,
+    "file_mb": null,
+    "rows": null,
+    "found": 1,
+    "expected": 1,
+    "checked": 1,
+    "matched": 1,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 1.402,
+      "cpu_s": 1.046,
+      "peak_rss_mb": 103,
+      "file_mb": null,
+      "rows": null,
+      "found": 1,
+      "expected": 1,
+      "checked": 1,
+      "matched": 1,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 1.266,
+      "cpu_s": 0.939,
+      "peak_rss_mb": 101,
+      "file_mb": null,
+      "rows": null,
+      "found": 1,
+      "expected": 1,
+      "checked": 1,
+      "matched": 1,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 1.517,
+      "cpu_s": 0.968,
+      "peak_rss_mb": 102,
+      "file_mb": null,
+      "rows": null,
+      "found": 1,
+      "expected": 1,
+      "checked": 1,
+      "matched": 1,
+      "ok": true
+    }
+  ]
+}

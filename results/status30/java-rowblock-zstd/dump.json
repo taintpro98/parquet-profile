@@ -1,0 +1,36 @@
+{
+  "dataset": "status30",
+  "impl": "java-rowblock-zstd",
+  "variant": "",
+  "op": "dump",
+  "scenario": null,
+  "cache": null,
+  "time": "2026-11-14 16:21",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_REPEAT=10 ORACLE_TABLE=ARCHIVE_STATUS",
+  "archive": "data/java-rowblock-zstd-status",
+  "summary": {
+    "runs": 1,
+    "wall_s": 255.435,
+    "cpu_s": 148.189,
+    "peak_rss_mb": 626,
+    "file_mb": 4815,
+    "rows": 1000000,
+    "found": null,
+    "expected": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 255.435,
+      "cpu_s": 148.189,
+      "peak_rss_mb": 626,
+      "file_mb": 4815,
+      "rows": 1000000,
+      "found": null,
+      "expected": null,
+      "ok": true
+    }
+  ]
+}

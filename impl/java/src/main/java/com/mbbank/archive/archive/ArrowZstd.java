@@ -49,11 +49,16 @@ import org.apache.arrow.vector.types.pojo.Schema;
  * là một index nhỏ ghi reference đầu tiên của từng lô; FIND tìm nhị phân trong index rồi chỉ giải
  * nén lô chứa key. Định dạng giống hệt bản Go (xem README).
  *
- * <p>Settings: ARROW_BATCH_ROWS (1024).
+ * <p>Settings: ARROW_BATCH_ROWS (10000: mỗi lô dump 10.000 dòng thành một record batch).
  */
 public final class ArrowZstd implements Archive {
 
     private static final byte[] MAGIC = "ARCHARW1".getBytes(StandardCharsets.US_ASCII);
+
+    @Override
+    public String name() {
+        return "arrow-zstd";
+    }
 
     @Override
     public String extension() {
@@ -75,7 +80,7 @@ public final class ArrowZstd implements Archive {
 
     @Override
     public long dump(RowCursor rows, Path out) throws Exception {
-        int batchRows = Settings.integer("ARROW_BATCH_ROWS", 1024);
+        int batchRows = Settings.integer("ARROW_BATCH_ROWS", 10_000);
         List<String> firsts = new ArrayList<>();
         long count = 0;
         try (BufferAllocator allocator = new RootAllocator();

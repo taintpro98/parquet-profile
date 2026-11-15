@@ -1,4 +1,4 @@
-// Command gen sinh 100.000 dòng ngẫu nhiên vào bảng ARCHIVE_PROFILE_DATA của Oracle trong Docker,
+// Command gen sinh 100.000 dòng vào bảng ORACLE_TABLE của Oracle trong Docker (SEED_MODE random | status),
 // rồi ghi các bộ reference cho FIND vào bench/refs/. Chỉ chạy khi bảng chưa tồn tại.
 //
 // Kích thước dòng giống bộ dữ liệu cũ (khoảng 21 KB), nhưng nội dung ngẫu nhiên: mỗi cột TEXT_nn có
@@ -11,9 +11,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
-	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -27,21 +25,15 @@ const (
 	batchSize   = 200
 )
 
-// passes: số lượt đọc bảng để tạo một ngày (ORACLE_REPEAT, Makefile mặc định 100 = 10M dòng).
-// Reference trong file lookup có tiền tố lượt 0000..passes-1 cho khớp.
-var passes = func() int {
-	n, err := strconv.Atoi(env("ORACLE_REPEAT", "100"))
-	if err != nil || n < 1 {
-		return 100
-	}
-	return n
-}()
 
 // day: toàn bộ dữ liệu thuộc một ngày, vì mỗi ngày là một file archive (xem CLAUDE.md).
 var day = time.Date(2026, 11, 14, 0, 0, 0, 0, time.UTC)
 
+// seedMode: random (mọi cột text ngẫu nhiên) hoặc status (30% số cột là cột trạng thái lặp nhiều).
+var seedMode = env("SEED_MODE", "random")
+
 // table đọc từ ORACLE_TABLE như các phương án, để dump đọc đúng bảng vừa sinh.
-var table = strings.ToUpper(env("ORACLE_TABLE", "ARCHIVE_PROFILE_DATA"))
+var table = strings.ToUpper(env("ORACLE_TABLE", "ARCHIVE_RANDOM"))
 
 func main() {
 	if err := run(); err != nil {
@@ -60,7 +52,10 @@ func run() error {
 		seed = v
 	}
 	rnd := rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
-	fmt.Printf("SEED=%d\n", seed)
+	if seedMode != "random" && seedMode != "status" {
+		return fmt.Errorf("SEED_MODE phải là random hoặc status, nhận %q", seedMode)
+	}
+	fmt.Printf("SEED=%d SEED_MODE=%s\n", seed, seedMode)
 
 	db, err := open()
 	if err != nil {
@@ -111,10 +106,14 @@ func run() error {
 			fmt.Printf("   %d/%d dòng (%s)\n", done, rows, time.Since(start).Round(time.Second))
 		}
 	}
-	if _, err := db.Exec("BEGIN DBMS_STATS.GATHER_TABLE_STATS(USER, :1); END;", table); err != nil {
+	// Index tra cứu như bảng giao dịch thật: key + timestamp. Khoá chính ID đã có sẵn.
+	if _, err := db.Exec("CREATE INDEX IX_" + table + "_KEY ON " + table + " (REFERENCE, CREATED_AT)"); err != nil {
 		return err
 	}
-	return writeRefs(rnd, references, createdAt)
+	if _, err := db.Exec("BEGIN DBMS_STATS.GATHER_TABLE_STATS(USER, :1, cascade => TRUE); END;", table); err != nil {
+		return err
+	}
+	return nil
 }
 
 func open() (*sql.DB, error) {
@@ -172,61 +171,4 @@ func uniqueReferences(rnd *rand.Rand) []string {
 // randomTime trả về một thời điểm ngẫu nhiên trong ngày, chính xác tới micro giây.
 func randomTime(rnd *rand.Rand) time.Time {
 	return day.Add(time.Duration(rnd.Int64N(int64(24*time.Hour))) / time.Microsecond * time.Microsecond)
-}
-
-// writeRefs ghi các bộ lookup (REFERENCE,TIMESTAMP mỗi dòng) cho ngày gồm `passes` lượt:
-// one, many-1000 và missing.
-func writeRefs(rnd *rand.Rand, references []string, createdAt []time.Time) error {
-	const layout = "2006-01-02 15:04:05.000000"
-	// Với một lượt, OracleSource không thêm tiền tố lượt vào reference.
-	prefix := func(pass int) string {
-		if passes == 1 {
-			return ""
-		}
-		return fmt.Sprintf("%04d", pass)
-	}
-	pick := func() string {
-		i := rnd.IntN(len(references))
-		return prefix(rnd.IntN(passes)) + references[i] + "," + createdAt[i].Format(layout)
-	}
-	many := map[string]bool{}
-	for len(many) < 1000 {
-		many[pick()] = true
-	}
-	manyList := make([]string, 0, len(many))
-	for r := range many {
-		manyList = append(manyList, r)
-	}
-	sort.Strings(manyList)
-	rnd.Shuffle(len(manyList), func(i, j int) { manyList[i], manyList[j] = manyList[j], manyList[i] })
-
-	existing := map[string]bool{}
-	for _, r := range references {
-		existing[r] = true
-	}
-	i := rnd.IntN(len(references))
-	ts := createdAt[i].Format(layout)
-	missing := []string{
-		"ZZZZ," + ts, // sau cuối file
-		"AAAA," + ts, // trước đầu file
-		prefix(0) + references[i] + "," + createdAt[i].Add(time.Microsecond).Format(layout), // đúng key, sai giờ
-		prefix(0) + references[i] + "," + createdAt[i].AddDate(0, 0, 1).Format(layout),      // đúng key, ngày không có file
-	}
-	for len(missing) < 6 { // trong khoảng nhưng không tồn tại
-		r := fmt.Sprintf("FT26%03d%09d", rnd.IntN(366), rnd.IntN(1_000_000_000))
-		if !existing[r] {
-			missing = append(missing, prefix(rnd.IntN(passes))+r+","+ts)
-		}
-	}
-	dir := env("REFS_DIR", filepath.Join("bench", "refs"))
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	for name, list := range map[string][]string{"one": {pick()}, "many-1000": manyList, "missing": missing} {
-		if err := os.WriteFile(filepath.Join(dir, name+".txt"), []byte(strings.Join(list, "\n")+"\n"), 0o644); err != nil {
-			return err
-		}
-	}
-	fmt.Printf("   %s/: one.txt, many-1000.txt, missing.txt\n", dir)
-	return nil
 }

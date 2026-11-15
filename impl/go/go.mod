@@ -6,6 +6,7 @@ require (
 	github.com/apache/arrow-go/v18 v18.5.1
 	github.com/duckdb/duckdb-go/v2 v2.20000.0
 	github.com/klauspost/compress v1.18.3
+	github.com/linxGnu/grocksdb v1.11.1
 	github.com/parquet-go/parquet-go v0.32.0
 	github.com/sijms/go-ora/v2 v2.9.0
 )

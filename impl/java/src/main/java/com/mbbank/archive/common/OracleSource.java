@@ -30,10 +30,10 @@ public final class OracleSource implements RowCursor, AutoCloseable {
                     Settings.string("ORACLE_URL", "jdbc:oracle:thin:@//localhost:1521/FREEPDB1"),
                     Settings.string("ORACLE_USERNAME", "benchmark"),
                     Settings.string("ORACLE_PASSWORD", "benchmark"),
-                    Settings.string("ORACLE_TABLE", "ARCHIVE_PROFILE_DATA"),
+                    Settings.string("ORACLE_TABLE", "ARCHIVE_RANDOM"),
                     Settings.string("ORACLE_QUERY", ""),
                     Settings.integer("ORACLE_REPEAT", 1),
-                    Settings.integer("ORACLE_FETCH_SIZE", 1000),
+                    Settings.integer("ORACLE_FETCH_SIZE", 10_000),
                     Settings.integer("ORACLE_TEXT_COLUMNS", 70),
                     Settings.number("PROGRESS_INTERVAL", 500_000));
         }

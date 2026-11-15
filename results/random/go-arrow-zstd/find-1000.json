@@ -1,0 +1,61 @@
+{
+  "dataset": "random",
+  "impl": "go-arrow-zstd",
+  "variant": "",
+  "op": "find",
+  "cache": "warm",
+  "time": "2026-11-14 15:44",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g",
+  "archive": "data/go-arrow-zstd-random",
+  "summary": {
+    "runs": 3,
+    "wall_s": 29.116,
+    "cpu_s": 57.889,
+    "peak_rss_mb": 607,
+    "file_mb": null,
+    "rows": null,
+    "found": 1000,
+    "expected": 1000,
+    "ok": true,
+    "checked": null,
+    "matched": null
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 29.116,
+      "cpu_s": 57.889,
+      "peak_rss_mb": 602,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 29.151,
+      "cpu_s": 57.916,
+      "peak_rss_mb": 607,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 29.016,
+      "cpu_s": 57.688,
+      "peak_rss_mb": 598,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "ok": true
+    }
+  ],
+  "n": 1000,
+  "note": "Đo trước khi có kiểm toàn vẹn với Oracle (bộ key cố định lúc seed)."
+}

@@ -3,6 +3,7 @@
 //	list
 //	dump --impl NAME --archive DIR
 //	find --impl NAME --archive DIR --refs LOOKUPS --out RESULT.jsonl
+//	sample --size N --out-dir DIR   (bốc key ngẫu nhiên từ Oracle, dùng chung cho mọi phương án)
 //
 // DIR holds one file per day. LOOKUPS has one "REFERENCE,YYYY-MM-DD HH:MM:SS.ffffff" per line.
 // The last stdout line is JSON for the runner: {"rows":N} after dump, {"found":N} after find.
@@ -11,6 +12,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"parquetprofile/archive"
@@ -72,6 +74,12 @@ func run(args []string) error {
 			return err
 		}
 		fmt.Printf("{\"found\":%d}\n", found)
+	case "sample":
+		size, err := strconv.Atoi(required("size"))
+		if err != nil {
+			return err
+		}
+		return common.Sample(common.OracleConfigFromEnv(), size, required("out-dir"))
 	default:
 		usage()
 	}
@@ -82,6 +90,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, `Usage:
   list
   dump --impl NAME --archive DIR
-  find --impl NAME --archive DIR --refs LOOKUPS --out RESULT.jsonl`)
+  find --impl NAME --archive DIR --refs LOOKUPS --out RESULT.jsonl
+  sample --size N --out-dir DIR`)
 	os.Exit(2)
 }

@@ -1,0 +1,42 @@
+{
+  "dataset": "status",
+  "impl": "java-rocksdb",
+  "variant": "",
+  "op": "dump",
+  "n": null,
+  "cache": null,
+  "repeat": 10,
+  "sample": null,
+  "time": "2026-11-14 21:42",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_REPEAT=10 ORACLE_TABLE=ARCHIVE_STATUS",
+  "archive": "data/java-rocksdb-status",
+  "summary": {
+    "runs": 1,
+    "wall_s": 431.868,
+    "cpu_s": 305.173,
+    "peak_rss_mb": 651,
+    "file_mb": 5947,
+    "rows": 1000000,
+    "found": null,
+    "expected": null,
+    "checked": null,
+    "matched": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 431.868,
+      "cpu_s": 305.173,
+      "peak_rss_mb": 651,
+      "file_mb": 5947,
+      "rows": 1000000,
+      "found": null,
+      "expected": null,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    }
+  ]
+}

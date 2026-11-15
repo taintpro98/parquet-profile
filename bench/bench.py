@@ -1,39 +1,51 @@
 """Runner chung cho mọi phương án. Đo từ bên ngoài tiến trình nên Java và Go được đo như nhau.
 
   python3 bench/bench.py list
-  python3 bench/bench.py dump   --impl IMPL [--runs N] [--label L]
-  python3 bench/bench.py find   --impl IMPL [--scenario S] [--cache warm|cold] [--runs N] [--label L]
-  python3 bench/bench.py report
+  python3 bench/bench.py sample       [--size 1000]
+  python3 bench/bench.py dump         --impl IMPL [--runs N] [--label L]
+  python3 bench/bench.py find         --impl IMPL --n N [--cache warm|cold] [--runs N] [--label L]
+  python3 bench/bench.py find-unknown --impl IMPL [--cache warm|cold] [--runs N] [--label L]
+  python3 bench/bench.py summary
 
 IMPL là tên phương án (java-parquet-duckdb), danh sách cách nhau bởi dấu phẩy, hoặc all.
-Kết quả: results/results.csv (mỗi lần chạy 1 dòng), results/REPORT.md (bảng so sánh),
-results/runs/<impl>/<thư mục từng lần chạy>/ (metrics.json, output.log, result.jsonl).
-Archive của mỗi phương án nằm ở data/<impl>[-<label>]/, mỗi ngày một file YYYY-MM-DD.<đuôi>.
+SEED_MODE (random | status) chọn bộ dữ liệu, ORACLE_REPEAT chọn số lượt (10 = 1M dòng/ngày).
+
+sample bốc key ngẫu nhiên từ Oracle kèm bản ghi đầy đủ, lưu ở bench/samples/<SEED_MODE>/r<ORACLE_REPEAT>/
+và dùng chung cho mọi phương án. find --n N tra N key đầu của bộ đó rồi so từng cột với Oracle.
+
+Mỗi lệnh ghi một file kết quả, ghi đè đúng file của phần vừa chạy:
+  results/<SEED_MODE>/<impl>[-<label>]/dump.json | find-<N>.json | find-unknown.json  (+ -cold)
+  results/<SEED_MODE>/<impl>[-<label>]/logs/      (output của lần chạy gần nhất)
+  results/<SEED_MODE>/oracle.json                 (make seed ghi)
+summary đọc mọi file đó và vẽ report.html ở thư mục gốc; phần chưa có kết quả thì để trống.
+Archive nằm ở data/<impl>-<SEED_MODE>[-<label>]/, mỗi ngày một file YYYY-MM-DD.<đuôi>.
 """
 
 import argparse
-import csv
 import json
 import os
 import platform
 import shlex
+import shutil
 import statistics
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
 
+from report_html import write_html
+
 ROOT = Path(__file__).resolve().parent.parent
-REFS = ROOT / "bench" / "refs"
+MODE = os.environ.get("SEED_MODE", "random")  # bộ dữ liệu: random | status
+REPEAT = int(os.environ.get("ORACLE_REPEAT", "1"))
+SAMPLES = ROOT / "bench" / "samples" / MODE / f"r{REPEAT}"
 RESULTS = ROOT / "results"
-CSV_FILE = RESULTS / "results.csv"
-REPORT = RESULTS / "REPORT.md"
+REPORT_HTML = ROOT / "report.html"
 DATA = ROOT / "data"
 
-FIELDS = ["batch", "time", "impl", "label", "op", "scenario", "cache", "run",
-          "wall_s", "cpu_s", "peak_rss_mb", "file_mb", "rows", "found", "expected", "ok", "settings"]
-# Biến môi trường ảnh hưởng tới số đo, được ghi kèm mỗi lần chạy.
+# Biến môi trường ảnh hưởng tới số đo, được ghi kèm mỗi kết quả.
 SETTING_PREFIXES = ("PARQUET_", "DUCKDB_", "ARROW_", "BLOCK_", "ORACLE_REPEAT", "ORACLE_FETCH_SIZE", "ORACLE_QUERY",
                     "ORACLE_TABLE", "JAVA_OPTS", "GOGC", "GOMEMLIMIT", "GOMAXPROCS")
 
@@ -80,6 +92,10 @@ def settings(op):
     return " ".join(f"{k}={v}" for k, v in pairs)
 
 
+def machine():
+    return f"{platform.system()} {platform.machine()} · {os.cpu_count()} CPU"
+
+
 def drop_caches():
     if platform.system() == "Darwin":
         command = ["sudo", "-n", "purge"]
@@ -105,170 +121,212 @@ def measure(command, log_path):
     return process.returncode, wall, usage.ru_utime + usage.ru_stime, rss_bytes / 2**20, lines[-1] if lines else ""
 
 
+def archive_size(directory):
+    """Tổng dung lượng các file ngày trong thư mục archive (có phương án lưu một ngày là một thư mục)."""
+    return sum(f.stat().st_size for f in directory.rglob("*") if f.is_file() and ".tmp" not in f.parts[-1])
+
+
+def sample(size):
+    """Bốc key ngẫu nhiên từ Oracle (lệnh sample của bản Go), dùng chung cho mọi phương án."""
+    command = [*LANGUAGES["go"](), "sample", "--size", str(size), "--out-dir", str(SAMPLES)]
+    if subprocess.run(command, cwd=ROOT).returncode != 0:
+        sys.exit("make sample thất bại")
+    meta = json.loads((SAMPLES / "meta.json").read_text())
+    print(f"Bộ key {meta['id']}: {size} key, {MODE}, {REPEAT} lượt → {SAMPLES.relative_to(ROOT)}")
+
+
+def load_sample(n):
+    """N key đầu của bộ đã bốc, cùng đáp án theo reference. Chưa có bộ nào thì tự bốc."""
+    if not (SAMPLES / "meta.json").exists():
+        sample(max(1000, n or 0))
+    meta = json.loads((SAMPLES / "meta.json").read_text())
+    if n is None:
+        return meta, (SAMPLES / "unknown.txt").read_text().splitlines(), {}
+    if n > meta["size"]:
+        sys.exit(f"Bộ key chỉ có {meta['size']} key, cần {n}: chạy make sample SIZE={n}")
+    lookups = (SAMPLES / "lookups.txt").read_text().splitlines()[:n]
+    wanted = {line.rsplit(",", 1)[0] for line in lookups}
+    expected = {}
+    with open(SAMPLES / "expected.jsonl", encoding="utf-8") as f:
+        for line in f:
+            ref = json.loads(line)["reference"]
+            if ref in wanted:
+                expected[ref] = line.rstrip("\n")
+    return meta, lookups, expected
+
+
+def integrity(result_file, expected):
+    """Số bản ghi trả về khớp từng byte với bản ghi lấy từ Oracle."""
+    matched = 0
+    with open(result_file, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if expected.get(json.loads(line)["reference"]) == line:
+                matched += 1
+    return matched
+
+
+def stem(args):
+    """Tên file kết quả: dump, find-<N>, find-unknown (+ -cold khi đo cache lạnh)."""
+    name = f"find-{args.n}" if args.op == "find" else args.op
+    return name + ("-cold" if args.op != "dump" and args.cache == "cold" else "")
+
+
 def run(args):
     impls = known_impls()
     names = select(impls, args.impl)
-    batch = datetime.now().strftime("%Y%m%d-%H%M%S")
-    scenarios = sorted(p.stem for p in REFS.glob("*.txt")) if args.scenario == "all" else args.scenario.split(",")
-    rows = []
-    for name in names:
-        lang, option, ext = impls[name]
-        archive = DATA / (name + (f"-{args.label}" if args.label else ""))  # thư mục, mỗi ngày một file
-        jobs = [None] if args.op == "dump" else scenarios
-        for scenario in jobs:
-            refs = REFS / f"{scenario}.txt" if scenario else None
-            if refs and not refs.exists():
-                sys.exit(f"Không có {refs.relative_to(ROOT)}")
-            if args.op == "find" and not any(archive.glob(f"*.{ext}")):
-                sys.exit(f"Chưa có {archive.relative_to(ROOT)}, chạy make dump IMPL={name} trước")
-            if args.op == "find" and args.cache == "warm":
-                run_once(name, lang, option, archive, refs, batch, args, scenario, run=0)  # làm nóng, không ghi
+    variant = f"-{args.label}" if args.label else ""
+    meta, lookups, expected = (None, [], {}) if args.op == "dump" else load_sample(args.n if args.op == "find" else None)
+    written, wrong = [], []
+    with tempfile.TemporaryDirectory(prefix="bench-") as tmp:
+        refs = Path(tmp) / "lookups.txt"
+        refs.write_text("\n".join(lookups) + "\n")
+        for name in names:
+            lang, option, ext = impls[name]
+            archive = DATA / f"{name}-{MODE}{variant}"  # thư mục, mỗi ngày một file
+            out_dir = RESULTS / MODE / f"{name}{variant}"
+            if args.op != "dump" and not any(archive.glob(f"*.{ext}")):
+                sys.exit(f"Chưa có {archive.relative_to(ROOT)}, chạy make dump IMPL={name} SEED_MODE={MODE} trước")
+            if args.op != "dump" and args.cache == "warm":
+                run_once(lang, option, archive, refs, out_dir, args, 0, expected)  # làm nóng, không ghi
+            runs = []
             for i in range(1, args.runs + 1):
-                if args.op == "find" and args.cache == "cold":
+                if args.op != "dump" and args.cache == "cold":
                     drop_caches()
-                rows.append(run_once(name, lang, option, archive, refs, batch, args, scenario, run=i))
-    write_csv(rows)
-    write_report()
-    print(f"\nĐã ghi {len(rows)} lần chạy → {CSV_FILE.relative_to(ROOT)}, {REPORT.relative_to(ROOT)}")
-    if not all(r["ok"] == "true" for r in rows):
-        sys.exit("Có lần chạy KHÔNG đúng (ok=false), xem output.log trong results/runs/")
+                runs.append(run_once(lang, option, archive, refs, out_dir, args, i, expected))
+            path = write_result(out_dir, name, args, runs, archive, meta)
+            written.append(path)
+            if not all(r["ok"] for r in runs):
+                wrong.append(path)
+    print("\nĐã ghi kết quả:\n" + "\n".join(f"  {p.relative_to(ROOT)}" for p in written))
+    print("Vẽ báo cáo: make summary")
+    if wrong:
+        sys.exit("Có lần chạy KHÔNG đúng (ok=false), xem thư mục logs/ cạnh các file trên")
 
 
-def run_once(name, lang, option, archive, refs, batch, args, scenario, run):
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    label = f"-{args.label}" if args.label else ""
-    run_dir = RESULTS / "runs" / name / f"{args.op}{'-' + scenario if scenario else ''}{label}-{stamp}-{run}"
-    run_dir.mkdir(parents=True, exist_ok=True)
-    command = [*LANGUAGES[lang](), args.op, "--impl", option, "--archive", str(archive)]
-    expected = ""
-    if args.op == "find":
-        command += ["--refs", str(refs), "--out", str(run_dir / "result.jsonl")]
-        unique = {line.strip() for line in refs.read_text().splitlines() if line.strip()}
-        expected = 0 if scenario.startswith("missing") else len(unique)
-
-    tag = f"{name}{label} {args.op}{' ' + scenario if scenario else ''}"
-    print(f"→ {tag} {'(làm nóng)' if run == 0 else f'lần {run}/{args.runs}'} ...", flush=True)
-    code, wall, cpu, rss, last = measure(command, run_dir / "output.log")
-    result = json.loads(last) if code == 0 and last.startswith("{") else {}
-    ok = code == 0 and (result.get("rows", 0) > 0 if args.op == "dump" else result.get("found") == expected)
-    row = {
-        "batch": batch, "time": stamp, "impl": name, "label": args.label, "op": args.op,
-        "scenario": scenario or "", "cache": args.cache if args.op == "find" else "", "run": run,
-        "wall_s": f"{wall:.3f}", "cpu_s": f"{cpu:.3f}", "peak_rss_mb": f"{rss:.0f}",
-        "file_mb": f"{archive_size(archive) / 2**20:.0f}" if args.op == "dump" else "",
-        "rows": result.get("rows", ""), "found": result.get("found", ""), "expected": expected,
-        "ok": str(ok).lower(), "settings": settings(args.op),
+def run_once(lang, option, archive, refs, out_dir, args, run, expected):
+    logs = out_dir / "logs"
+    logs.mkdir(parents=True, exist_ok=True)
+    op = "dump" if args.op == "dump" else "find"
+    command = [*LANGUAGES[lang](), op, "--impl", option, "--archive", str(archive)]
+    tmp = Path(tempfile.mkdtemp(prefix="bench-"))  # kết quả FIND chỉ để so rồi xoá
+    if op == "find":
+        command += ["--refs", str(refs), "--out", str(tmp / "result.jsonl")]
+    print(f"→ {lang}-{option}{'-' + args.label if args.label else ''} {MODE} {stem(args)} "
+          f"{'(làm nóng)' if run == 0 else f'lần {run}/{args.runs}'} ...", flush=True)
+    try:
+        code, wall, cpu, rss, last = measure(command, logs / f"{stem(args)}-{run}.log")
+        result = json.loads(last) if code == 0 and last.startswith("{") else {}
+        matched = integrity(tmp / "result.jsonl", expected) if op == "find" and code == 0 else None
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    if args.op == "dump":
+        ok = code == 0 and result.get("rows", 0) > 0
+    elif args.op == "find":
+        ok = code == 0 and result.get("found") == args.n and matched == args.n
+    else:
+        ok = code == 0 and result.get("found") == 0
+    measured = {
+        "run": run, "wall_s": round(wall, 3), "cpu_s": round(cpu, 3), "peak_rss_mb": round(rss),
+        "file_mb": round(archive_size(archive) / 2**20) if args.op == "dump" else None,
+        "rows": result.get("rows"), "found": result.get("found"),
+        "expected": args.n if args.op == "find" else (0 if args.op == "find-unknown" else None),
+        "checked": args.n if args.op == "find" else None, "matched": matched if args.op == "find" else None,
+        "ok": ok,
     }
-    (run_dir / "metrics.json").write_text(json.dumps(row, indent=2, ensure_ascii=False) + "\n")
-    print(f"  wall {row['wall_s']} s · cpu {row['cpu_s']} s · RAM {row['peak_rss_mb']} MB"
-          f"{' · file ' + row['file_mb'] + ' MB' if row['file_mb'] else ''} · {'OK' if ok else 'SAI'}")
-    return row if run > 0 else None
+    file_note = f" · file {measured['file_mb']} MB" if measured["file_mb"] is not None else ""
+    check_note = f" · khớp Oracle {matched}/{args.n}" if args.op == "find" else ""
+    print(f"  wall {wall:.3f} s · cpu {cpu:.3f} s · RAM {rss:.0f} MB{file_note}{check_note} · {'OK' if ok else 'SAI'}")
+    return measured
 
 
-def archive_size(directory):
-    """Tổng dung lượng các file ngày trong thư mục archive."""
-    return sum(f.stat().st_size for f in directory.glob("*") if f.is_file() and not f.name.endswith(".tmp"))
-
-
-def write_csv(rows):
-    rows = [r for r in rows if r]
-    RESULTS.mkdir(exist_ok=True)
-    new = not CSV_FILE.exists()
-    with open(CSV_FILE, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDS)
-        if new:
-            writer.writeheader()
-        writer.writerows(rows)
-
-
-def write_report():
-    """Mỗi nhóm (thao tác, kịch bản, cache, phương án, nhãn) lấy lần bench gần nhất.
-    Thời gian lấy trung vị, RAM lấy lớn nhất; giá trị tốt nhất mỗi cột in đậm."""
-    if not CSV_FILE.exists():
-        sys.exit("Chưa có kết quả nào trong results/results.csv")
-    with open(CSV_FILE, newline="") as f:
-        all_rows = list(csv.DictReader(f))
-    latest = {}
-    for r in all_rows:
-        key = (r["op"], r["scenario"], r["cache"], r["impl"], r["label"])
-        latest.setdefault(key, {}).setdefault(r["batch"], []).append(r)
-
-    sections = {}
-    for (op, scenario, cache, impl, label), batches in latest.items():
-        runs = batches[max(batches)]
-        median = lambda field: statistics.median(float(r[field]) for r in runs)
-        oks = sum(r["ok"] == "true" for r in runs)
-        sections.setdefault((op, scenario, cache), []).append({
-            "impl": impl + (f" `{label}`" if label else ""),
+def write_result(out_dir, name, args, runs, archive, meta):
+    """Một file cho mỗi (bộ dữ liệu, phương án, thao tác, cache); chạy lại thì ghi đè."""
+    path = out_dir / f"{stem(args)}.json"
+    last = runs[-1]
+    result = {
+        "dataset": MODE, "impl": name, "variant": args.label, "op": args.op,
+        "n": args.n if args.op == "find" else None,
+        "cache": args.cache if args.op != "dump" else None, "repeat": REPEAT,
+        "sample": meta["id"] if meta else None,
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M"), "machine": machine(), "settings": settings(args.op),
+        "archive": str(archive.relative_to(ROOT)),
+        # Thời gian lấy trung vị, RAM lấy lớn nhất qua các lần chạy; khớp Oracle lấy lần tệ nhất.
+        "summary": {
             "runs": len(runs),
-            "wall": median("wall_s"),
-            "cpu": median("cpu_s"),
-            "ram": max(float(r["peak_rss_mb"]) for r in runs),
-            "file": float(runs[-1]["file_mb"]) if runs[-1]["file_mb"] else None,
-            "rows": runs[-1]["rows"] or runs[-1]["found"],
-            "ok": "✓" if oks == len(runs) else f"✗ {oks}/{len(runs)}",
-            "settings": runs[-1]["settings"],
-            "date": datetime.strptime(runs[-1]["time"], "%Y%m%d-%H%M%S").strftime("%Y-%m-%d %H:%M"),
-        })
+            "wall_s": statistics.median(r["wall_s"] for r in runs),
+            "cpu_s": statistics.median(r["cpu_s"] for r in runs),
+            "peak_rss_mb": max(r["peak_rss_mb"] for r in runs),
+            "file_mb": last["file_mb"], "rows": last["rows"], "found": last["found"], "expected": last["expected"],
+            "checked": last["checked"],
+            "matched": min(r["matched"] for r in runs) if args.op == "find" else None,
+            "ok": all(r["ok"] for r in runs),
+        },
+        "runs": runs,
+    }
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n")
+    return path
 
-    lines = ["# Benchmark", "",
-             f"Cập nhật {datetime.now():%Y-%m-%d %H:%M} · {platform.system()} {platform.machine()} · "
-             f"{os.cpu_count()} CPU", "",
-             "Thời gian: trung vị các lần chạy · RAM: Peak RSS lớn nhất của cả tiến trình · "
-             "**đậm** = tốt nhất cột · đo từ ngoài tiến trình, gồm cả khởi động JVM/DuckDB.", ""]
-    known = ["one", "many-1000", "missing"]
-    order = lambda key: (key[0] != "dump", known.index(key[1]) if key[1] in known else len(known), key[1], key[2])
-    for op, scenario, cache in sorted(sections, key=order):
-        entries = sorted(sections[(op, scenario, cache)], key=lambda e: e["impl"])
-        title = "DUMP" if op == "dump" else f"FIND `{scenario}` · cache {cache}"
-        columns = [("Phương án", "impl", None), ("Lần", "runs", None), ("Wall (s)", "wall", "{:.2f}"),
-                   ("CPU (s)", "cpu", "{:.2f}"), ("Peak RAM (MB)", "ram", "{:.0f}")]
-        if op == "dump":
-            columns.append(("File (MB)", "file", "{:.0f}"))
-        columns += [("Dòng" if op == "dump" else "Tìm thấy", "rows", None), ("Đúng", "ok", None),
-                    ("Ngày", "date", None)]
-        best = {key: min(e[key] for e in entries if e[key] is not None)
-                for _, key, fmt in columns if fmt and any(e[key] is not None for e in entries)}
-        lines += [f"## {title}", "",
-                  "| " + " | ".join(c[0] for c in columns) + " |",
-                  "|" + "|".join("---:" if c[2] or c[1] == "runs" else "---" for c in columns) + "|"]
-        for e in entries:
-            cells = []
-            for _, key, fmt in columns:
-                value = e[key]
-                if fmt and value is not None:
-                    text = fmt.format(value)
-                    cells.append(f"**{text}**" if len(entries) > 1 and value == best[key] else text)
-                else:
-                    cells.append("" if value is None else str(value))
-            lines.append("| " + " | ".join(cells) + " |")
-        configs = [f"- {e['impl']}: `{e['settings']}`" for e in entries if e["settings"]]
-        if configs:
-            lines += ["", "Cấu hình:", *configs]
-        lines.append("")
-    REPORT.write_text("\n".join(lines))
+
+def summary():
+    """Đọc mọi file kết quả trong results/ và vẽ report.html. Thiếu phần nào thì phần đó để trống."""
+    entries, oracle, machines, skipped = [], {}, set(), []
+    for path in sorted(RESULTS.glob("*/oracle.json")):
+        try:
+            o = json.loads(path.read_text())
+            oracle[path.parent.name] = {"rows": o["rows"], "table_mb": o["table_mb"], "index_mb": o["index_mb"]}
+        except (ValueError, KeyError) as e:
+            skipped.append(f"{path.relative_to(ROOT)} ({e})")
+    for path in sorted(RESULTS.glob("*/*/*.json")):
+        try:
+            r = json.loads(path.read_text())
+            s = r["summary"]
+            op = r["op"]
+            scenario = r.get("scenario") or ""
+            if op == "find" and r.get("n") is not None:
+                scenario = str(r["n"])
+            elif op == "find-unknown":
+                op, scenario = "find", "unknown"
+            entries.append({
+                "impl": r["impl"], "label": r["dataset"] + (f"-{r['variant']}" if r.get("variant") else ""),
+                "op": op, "scenario": scenario, "cache": r.get("cache") or "",
+                "checked": s.get("checked"), "matched": s.get("matched"), "sample": r.get("sample"),
+                "runs": s["runs"], "wall": s["wall_s"], "cpu": s["cpu_s"], "ram": s["peak_rss_mb"],
+                "file": s.get("file_mb"), "rows": s.get("rows"), "found": s.get("found"), "ok": s["ok"],
+                "settings": r.get("settings", ""), "date": r.get("time", ""),
+            })
+            machines.add(r.get("machine", ""))
+        except (ValueError, KeyError) as e:
+            skipped.append(f"{path.relative_to(ROOT)} ({e})")
+    write_html(REPORT_HTML, entries, oracle, " / ".join(sorted(m for m in machines if m)) or machine())
+    print(f"{REPORT_HTML.relative_to(ROOT)}  ← {len(entries)} kết quả, mở bằng trình duyệt")
+    for s in skipped:
+        print(f"  bỏ qua file hỏng: {s}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="op", required=True)
     sub.add_parser("list")
-    sub.add_parser("report")
-    for op in ("dump", "find"):
+    sub.add_parser("summary")
+    sub.add_parser("sample").add_argument("--size", type=int, default=1000)
+    for op in ("dump", "find", "find-unknown"):
         p = sub.add_parser(op)
         p.add_argument("--impl", required=True)
-        p.add_argument("--runs", type=int, default=1 if op == "dump" else 5)
-        p.add_argument("--label", default="", help="tên cấu hình, ví dụ rg50k; tách file archive và dòng báo cáo")
-        p.add_argument("--scenario", default="all",
-                       help="tên file trong bench/refs (mỗi dòng REFERENCE,TIMESTAMP), cách nhau bởi dấu phẩy, hoặc all")
+        p.add_argument("--runs", type=int, default=1 if op == "dump" else 3)
+        p.add_argument("--label", default="", help="tên cấu hình, ví dụ 2m; tách archive và kết quả")
         p.add_argument("--cache", choices=["warm", "cold"], default="warm")
+        if op == "find":
+            p.add_argument("--n", type=int, required=True, help="số key tra, lấy N key đầu của bộ đã bốc")
     args = parser.parse_args()
     if args.op == "list":
         for name, (_, _, ext) in known_impls().items():
             print(f"{name}\t.{ext}")
-    elif args.op == "report":
-        write_report()
-        print(REPORT.relative_to(ROOT))
+    elif args.op == "summary":
+        summary()
+    elif args.op == "sample":
+        sample(args.size)
     else:
         run(args)
 

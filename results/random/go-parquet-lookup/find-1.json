@@ -1,0 +1,68 @@
+{
+  "dataset": "random",
+  "impl": "go-parquet-lookup",
+  "variant": "",
+  "op": "find",
+  "n": 1,
+  "cache": "warm",
+  "repeat": 10,
+  "sample": "df463afe",
+  "time": "2026-11-14 20:04",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g",
+  "archive": "data/go-parquet-lookup-random",
+  "summary": {
+    "runs": 3,
+    "wall_s": 0.352,
+    "cpu_s": 0.364,
+    "peak_rss_mb": 210,
+    "file_mb": null,
+    "rows": null,
+    "found": 1,
+    "expected": 1,
+    "checked": 1,
+    "matched": 1,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 0.352,
+      "cpu_s": 0.364,
+      "peak_rss_mb": 210,
+      "file_mb": null,
+      "rows": null,
+      "found": 1,
+      "expected": 1,
+      "checked": 1,
+      "matched": 1,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 0.352,
+      "cpu_s": 0.364,
+      "peak_rss_mb": 209,
+      "file_mb": null,
+      "rows": null,
+      "found": 1,
+      "expected": 1,
+      "checked": 1,
+      "matched": 1,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 0.352,
+      "cpu_s": 0.365,
+      "peak_rss_mb": 210,
+      "file_mb": null,
+      "rows": null,
+      "found": 1,
+      "expected": 1,
+      "checked": 1,
+      "matched": 1,
+      "ok": true
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "dataset": "random",
+  "impl": "java-parquet-duckdb",
+  "variant": "",
+  "op": "find",
+  "scenario": "missing",
+  "cache": "warm",
+  "time": "2026-11-14 15:20",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g",
+  "archive": "data/java-parquet-duckdb-random",
+  "summary": {
+    "runs": 3,
+    "wall_s": 3.784,
+    "cpu_s": 5.899,
+    "peak_rss_mb": 796,
+    "file_mb": null,
+    "rows": null,
+    "found": 0,
+    "expected": 0,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 3.835,
+      "cpu_s": 5.924,
+      "peak_rss_mb": 711,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 3.708,
+      "cpu_s": 5.899,
+      "peak_rss_mb": 710,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 3.784,
+      "cpu_s": 5.087,
+      "peak_rss_mb": 796,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "ok": true
+    }
+  ]
+}

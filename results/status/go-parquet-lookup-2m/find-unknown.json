@@ -1,0 +1,68 @@
+{
+  "dataset": "status",
+  "impl": "go-parquet-lookup",
+  "variant": "2m",
+  "op": "find-unknown",
+  "n": null,
+  "cache": "warm",
+  "repeat": 20,
+  "sample": "63599729",
+  "time": "2026-11-15 02:22",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_REPEAT=20 ORACLE_TABLE=ARCHIVE_STATUS",
+  "archive": "data/go-parquet-lookup-status-2m",
+  "summary": {
+    "runs": 3,
+    "wall_s": 0.059,
+    "cpu_s": 0.06,
+    "peak_rss_mb": 80,
+    "file_mb": null,
+    "rows": null,
+    "found": 0,
+    "expected": 0,
+    "checked": null,
+    "matched": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 0.059,
+      "cpu_s": 0.06,
+      "peak_rss_mb": 80,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 0.058,
+      "cpu_s": 0.06,
+      "peak_rss_mb": 80,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 0.059,
+      "cpu_s": 0.06,
+      "peak_rss_mb": 80,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    }
+  ]
+}

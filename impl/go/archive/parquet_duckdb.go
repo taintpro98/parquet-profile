@@ -1,4 +1,3 @@
-// Package archive holds the Go storage options, one file per option.
 package archive
 
 import (
@@ -17,9 +16,18 @@ import (
 
 // ParquetDuckdb ghi Parquet bằng parquet-go và đọc bằng DuckDB nhúng (duckdb-go, cần cgo).
 //
+// Ghi theo cùng cấu hình mặc định của bản Java (parquet-java): dictionary encoding cho cột chuỗi,
+// tối đa 1 MB dictionary mỗi cột rồi chuyển sang PLAIN; row group 128 MB. parquet-go không tự chia
+// row group theo byte, nên Dump gọi Flush khi Writer.Size() báo row group đang ghi đạt 128 MB,
+// đúng cách tài liệu parquet-go hướng dẫn. Dòng được ghi theo lô PARQUET_WRITE_BATCH.
+//
 // Settings: PARQUET_COMPRESSION (ZSTD | SNAPPY | LZ4_RAW | GZIP | UNCOMPRESSED),
-// PARQUET_ROW_GROUP_ROWS (250000), DUCKDB_THREADS (4), DUCKDB_EXTERNAL_FILE_CACHE (false).
+// PARQUET_ROW_GROUP_BYTES (128 MiB), PARQUET_ROW_GROUP_ROWS (không giới hạn nếu không đặt),
+// PARQUET_WRITE_BATCH (10000), DUCKDB_THREADS (4),
+// DUCKDB_EXTERNAL_FILE_CACHE (false).
 type ParquetDuckdb struct{}
+
+func init() { Register("parquet-duckdb", func() common.Archive { return ParquetDuckdb{} }) }
 
 func (ParquetDuckdb) Extension() string { return "parquet" }
 
@@ -86,15 +94,42 @@ func (ParquetDuckdb) Dump(rows common.RowCursor, out string) (int64, error) {
 		return 0, err
 	}
 	defer f.Close()
-	writer := parquet.NewWriter(f, s,
+	options := []parquet.WriterOption{
+		s, // schema cũng là một WriterOption
 		parquet.Compression(codec),
-		parquet.MaxRowsPerRowGroup(common.Int("PARQUET_ROW_GROUP_ROWS", 250_000)),
-		// References are longer than the default 16 bytes; untruncated bounds keep pruning exact.
-		parquet.ColumnIndexSizeLimit(func([]string) int { return 64 }))
+		// Như mặc định của parquet-java: dictionary cho chuỗi, quá 1 MB thì chuyển PLAIN.
+		parquet.DefaultEncodingFor(parquet.ByteArray, &parquet.RLEDictionary),
+		parquet.DictionaryMaxBytes(1 << 20),
+		// Reference dài hơn 16 byte mặc định; giữ nguyên min/max để bỏ qua row group chính xác.
+		parquet.ColumnIndexSizeLimit(func([]string) int { return 64 }),
+	}
+	if os.Getenv("PARQUET_ROW_GROUP_ROWS") != "" {
+		options = append(options, parquet.MaxRowsPerRowGroup(common.Int("PARQUET_ROW_GROUP_ROWS", 0)))
+	}
+	writer := parquet.NewWriter(f, options...)
+	rowGroupBytes := common.Int("PARQUET_ROW_GROUP_BYTES", 128<<20)
+	rowGroupStart := int64(0) // Size() tính từ đầu file; phần vượt mốc này là row group đang ghi
 
-	row := make(parquet.Row, len(s.Columns()))
-	batch := []parquet.Row{row}
+	batchSize := int(common.Int("PARQUET_WRITE_BATCH", 10_000))
+	batch := make([]parquet.Row, 0, batchSize)
+	columnCount := len(s.Columns())
 	var count int64
+	flush := func() error {
+		if len(batch) == 0 {
+			return nil
+		}
+		if _, err := writer.WriteRows(batch); err != nil {
+			return err
+		}
+		batch = batch[:0]
+		if writer.Size()-rowGroupStart >= rowGroupBytes {
+			if err := writer.Flush(); err != nil {
+				return err
+			}
+			rowGroupStart = writer.Size()
+		}
+		return nil
+	}
 	for {
 		more, err := rows.Next()
 		if err != nil {
@@ -103,6 +138,8 @@ func (ParquetDuckdb) Dump(rows common.RowCursor, out string) (int64, error) {
 		if !more {
 			break
 		}
+		// Mỗi dòng một Row mới: lô giữ nhiều dòng cùng lúc, không được dùng lại slice.
+		row := make(parquet.Row, columnCount)
 		row[cols.id] = parquet.Int64Value(rows.ID()).Level(0, 0, cols.id)
 		row[cols.reference] = parquet.ByteArrayValue([]byte(rows.Reference())).Level(0, 0, cols.reference)
 		row[cols.createdAt] = parquet.Int64Value(rows.CreatedAt().UnixMicro()).Level(0, 0, cols.createdAt)
@@ -113,10 +150,16 @@ func (ParquetDuckdb) Dump(rows common.RowCursor, out string) (int64, error) {
 				row[col] = parquet.NullValue().Level(0, 0, col)
 			}
 		}
-		if _, err := writer.WriteRows(batch); err != nil {
-			return count, err
-		}
+		batch = append(batch, row)
 		count++
+		if len(batch) == batchSize {
+			if err := flush(); err != nil {
+				return count, err
+			}
+		}
+	}
+	if err := flush(); err != nil {
+		return count, err
 	}
 	if err := writer.Close(); err != nil {
 		return count, err
@@ -126,8 +169,8 @@ func (ParquetDuckdb) Dump(rows common.RowCursor, out string) (int64, error) {
 
 // ---- FIND ----
 
-// Find chạy một truy vấn DuckDB cho mọi reference, giống java-parquet-duckdb. Cột được chọn theo tên,
-// nên đọc được cả file do phương án khác ghi.
+// Find chạy một truy vấn DuckDB cho mọi reference, cùng câu truy vấn với java-parquet-duckdb
+// (SELECT *). Cột được ánh xạ theo tên, vì parquet-go xếp cột theo bảng chữ cái.
 func (ParquetDuckdb) Find(file string, references []string) ([]common.Row, error) {
 	db, err := sql.Open("duckdb", "")
 	if err != nil {
@@ -148,8 +191,7 @@ func (ParquetDuckdb) Find(file string, references []string) ([]common.Row, error
 		marks[i] = "?"
 		args = append(args, r)
 	}
-	rows, err := db.Query(`SELECT id, reference, created_at, COLUMNS('^text_\d+$') FROM read_parquet(?)
-		WHERE reference IN (`+strings.Join(marks, ",")+`)`, args...)
+	rows, err := db.Query("SELECT * FROM read_parquet(?) WHERE reference IN ("+strings.Join(marks, ",")+")", args...)
 	if err != nil {
 		return nil, err
 	}
@@ -158,26 +200,49 @@ func (ParquetDuckdb) Find(file string, references []string) ([]common.Row, error
 	if err != nil {
 		return nil, err
 	}
-	texts := make([]sql.NullString, len(names)-3)
+
+	textColumns := 0
+	for _, name := range names {
+		if strings.HasPrefix(name, "text_") {
+			textColumns++
+		}
+	}
+	var row common.Row
+	texts := make([]sql.NullString, textColumns)
+	dest := make([]any, len(names))
+	textIndex := make([]int, len(names)) // vị trí cột trong kết quả -> chỉ số text, -1 nếu không phải text
+	for i, name := range names {
+		textIndex[i] = -1
+		switch name {
+		case "id":
+			dest[i] = &row.ID
+		case "reference":
+			dest[i] = &row.Reference
+		case "created_at":
+			dest[i] = &row.CreatedAt
+		default:
+			var n int
+			if _, err := fmt.Sscanf(name, "text_%d", &n); err != nil || n < 1 || n > textColumns {
+				return nil, fmt.Errorf("unexpected column %s", name)
+			}
+			dest[i] = &texts[n-1]
+			textIndex[i] = n - 1
+		}
+	}
+
 	var found []common.Row
 	for rows.Next() {
-		var row common.Row
-		dest := []any{&row.ID, &row.Reference, &row.CreatedAt}
-		for i := range texts {
-			dest = append(dest, &texts[i])
-		}
 		if err := rows.Scan(dest...); err != nil {
 			return nil, err
 		}
-		row.CreatedAt = row.CreatedAt.UTC()
-		row.Texts = make([]*string, len(texts))
+		out := common.Row{ID: row.ID, Reference: row.Reference, CreatedAt: row.CreatedAt.UTC(), Texts: make([]*string, textColumns)}
 		for i, t := range texts {
 			if t.Valid {
 				value := t.String
-				row.Texts[i] = &value
+				out.Texts[i] = &value
 			}
 		}
-		found = append(found, row)
+		found = append(found, out)
 	}
 	return found, rows.Err()
 }

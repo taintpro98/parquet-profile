@@ -35,12 +35,19 @@ import org.apache.parquet.schema.Types;
  * WRITE with parquet-java, streaming each row from the cursor straight into the column buffers.
  * FIND with embedded DuckDB, one {@code WHERE reference IN (...)} query for all references.
  *
- * <p>Settings: PARQUET_COMPRESSION (ZSTD), PARQUET_ROW_GROUP_ROWS (250000), PARQUET_ROW_GROUP_BYTES
- * (2 GiB, whichever limit is reached first), DUCKDB_THREADS (4), DUCKDB_EXTERNAL_FILE_CACHE (false).
+ * <p>Settings: PARQUET_COMPRESSION (ZSTD), PARQUET_ROW_GROUP_BYTES (128 MiB, the parquet-java
+ * default), PARQUET_ROW_GROUP_ROWS (no limit unless set),
+ * DUCKDB_THREADS (4), DUCKDB_EXTERNAL_FILE_CACHE (false). Dictionary encoding is on by default
+ * (parquet-java: 1 MB dictionary per column, then PLAIN).
  */
 public final class ParquetDuckdb implements Archive {
 
     private static final int FIXED_COLUMNS = 3;
+
+    @Override
+    public String name() {
+        return "parquet-duckdb";
+    }
 
     @Override
     public String extension() {
@@ -53,12 +60,16 @@ public final class ParquetDuckdb implements Archive {
     public long dump(RowCursor rows, Path out) throws Exception {
         MessageType schema = schema(rows.textColumns());
         long count = 0;
-        try (ParquetWriter<RowCursor> writer = new Builder(out, schema)
+        // Row group theo mặc định của parquet-java: 128 MB tính theo byte, không giới hạn số dòng.
+        // PARQUET_ROW_GROUP_ROWS / PARQUET_ROW_GROUP_BYTES chỉ để thử cấu hình khác (và cho test).
+        Builder builder = new Builder(out, schema)
                 .withCompressionCodec(CompressionCodecName.fromConf(Settings.string("PARQUET_COMPRESSION", "ZSTD")))
-                .withRowGroupRowCountLimit(Settings.integer("PARQUET_ROW_GROUP_ROWS", 250_000))
-                .withRowGroupSize(Settings.number("PARQUET_ROW_GROUP_BYTES", 2L << 30))
-                .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
-                .build()) {
+                .withRowGroupSize(Settings.number("PARQUET_ROW_GROUP_BYTES", ParquetWriter.DEFAULT_BLOCK_SIZE))
+                .withWriteMode(ParquetFileWriter.Mode.OVERWRITE);
+        if (System.getenv("PARQUET_ROW_GROUP_ROWS") != null) {
+            builder.withRowGroupRowCountLimit(Settings.integer("PARQUET_ROW_GROUP_ROWS", 0));
+        }
+        try (ParquetWriter<RowCursor> writer = builder.build()) {
             while (rows.next()) {
                 writer.write(rows);
                 count++;

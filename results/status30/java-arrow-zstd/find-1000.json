@@ -1,0 +1,61 @@
+{
+  "dataset": "status30",
+  "impl": "java-arrow-zstd",
+  "variant": "",
+  "op": "find",
+  "cache": "warm",
+  "time": "2026-11-14 16:16",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g",
+  "archive": "data/java-arrow-zstd-status",
+  "summary": {
+    "runs": 3,
+    "wall_s": 14.423,
+    "cpu_s": 15.066,
+    "peak_rss_mb": 1566,
+    "file_mb": null,
+    "rows": null,
+    "found": 1000,
+    "expected": 1000,
+    "ok": true,
+    "checked": null,
+    "matched": null
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 13.667,
+      "cpu_s": 14.271,
+      "peak_rss_mb": 1566,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 14.423,
+      "cpu_s": 15.182,
+      "peak_rss_mb": 1205,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 14.482,
+      "cpu_s": 15.066,
+      "peak_rss_mb": 1343,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "ok": true
+    }
+  ],
+  "n": 1000,
+  "note": "Đo trước khi có kiểm toàn vẹn với Oracle (bộ key cố định lúc seed)."
+}

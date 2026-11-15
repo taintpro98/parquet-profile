@@ -43,7 +43,7 @@ public final class Cli {
         Map<String, String> options = options(args);
         switch (args[0]) {
             case "list" -> Archives.ALL.forEach((name, archive) ->
-                    System.out.println(name + "\t" + archive.get().extension()));
+                    System.out.println(name + "\t" + archive.extension()));
             case "dump" -> {
                 long rows = dump(
                         Archives.get(required(options, "impl")),
@@ -77,9 +77,12 @@ public final class Cli {
                 Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
                 try {
                     rows += archive.dump(days, tmp);
+                    if (Files.isDirectory(file)) {
+                        deleteRecursively(file); // một ngày là thư mục (RocksDB): rename không ghi đè thư mục
+                    }
                     Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
                 } finally {
-                    Files.deleteIfExists(tmp);
+                    deleteRecursively(tmp);
                 }
             }
         }
@@ -120,6 +123,17 @@ public final class Cli {
             }
         }
         return rows.size();
+    }
+
+    private static void deleteRecursively(Path path) throws IOException {
+        if (!Files.exists(path)) {
+            return;
+        }
+        try (var walk = Files.walk(path)) {
+            for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                Files.delete(p);
+            }
+        }
     }
 
     private static Path dayFile(Archive archive, Path dir, LocalDate day) {

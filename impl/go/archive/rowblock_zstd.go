@@ -21,6 +21,8 @@ import (
 // Settings: BLOCK_BYTES (1048576, kích thước block trước khi nén), BLOCK_ZSTD_LEVEL (3).
 type RowblockZstd struct{}
 
+func init() { Register("rowblock-zstd", func() common.Archive { return RowblockZstd{} }) }
+
 const rowblockMagic = "ARCHBLK1"
 
 func (RowblockZstd) Extension() string { return "rbk" }

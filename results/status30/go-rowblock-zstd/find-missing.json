@@ -1,0 +1,58 @@
+{
+  "dataset": "status30",
+  "impl": "go-rowblock-zstd",
+  "variant": "",
+  "op": "find",
+  "scenario": "missing",
+  "cache": "warm",
+  "time": "2026-11-14 16:29",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g",
+  "archive": "data/go-rowblock-zstd-status",
+  "summary": {
+    "runs": 3,
+    "wall_s": 0.018,
+    "cpu_s": 0.017,
+    "peak_rss_mb": 20,
+    "file_mb": null,
+    "rows": null,
+    "found": 0,
+    "expected": 0,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 0.018,
+      "cpu_s": 0.017,
+      "peak_rss_mb": 20,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 0.019,
+      "cpu_s": 0.018,
+      "peak_rss_mb": 20,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 0.018,
+      "cpu_s": 0.017,
+      "peak_rss_mb": 20,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "ok": true
+    }
+  ]
+}

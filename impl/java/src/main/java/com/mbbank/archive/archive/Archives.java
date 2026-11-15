@@ -2,24 +2,27 @@ package com.mbbank.archive.archive;
 
 import com.mbbank.archive.common.Archive;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.TreeMap;
-import java.util.function.Supplier;
 
-/** Every Java option by name. A new option is one file in this package plus one line here. */
+/** Every Java option, found through ServiceLoader. A new option is one file plus one services line. */
 public final class Archives {
 
-    public static final Map<String, Supplier<Archive>> ALL = new TreeMap<>(Map.of(
-            "parquet-duckdb", ParquetDuckdb::new,
-            "arrow-zstd", ArrowZstd::new,
-            "rowblock-zstd", RowblockZstd::new));
+    public static final Map<String, Archive> ALL = new TreeMap<>();
+
+    static {
+        for (Archive archive : ServiceLoader.load(Archive.class)) {
+            ALL.put(archive.name(), archive);
+        }
+    }
 
     private Archives() {}
 
     public static Archive get(String name) {
-        Supplier<Archive> archive = ALL.get(name);
+        Archive archive = ALL.get(name);
         if (archive == null) {
             throw new IllegalArgumentException("Unknown option: " + name + ", known: " + ALL.keySet());
         }
-        return archive.get();
+        return archive;
     }
 }

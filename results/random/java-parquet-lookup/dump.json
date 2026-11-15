@@ -1,0 +1,42 @@
+{
+  "dataset": "random",
+  "impl": "java-parquet-lookup",
+  "variant": "",
+  "op": "dump",
+  "n": null,
+  "cache": null,
+  "repeat": 10,
+  "sample": null,
+  "time": "2026-11-14 19:54",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_REPEAT=10 ORACLE_TABLE=ARCHIVE_RANDOM",
+  "archive": "data/java-parquet-lookup-random",
+  "summary": {
+    "runs": 1,
+    "wall_s": 401.631,
+    "cpu_s": 254.271,
+    "peak_rss_mb": 1260,
+    "file_mb": 7166,
+    "rows": 1000000,
+    "found": null,
+    "expected": null,
+    "checked": null,
+    "matched": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 401.631,
+      "cpu_s": 254.271,
+      "peak_rss_mb": 1260,
+      "file_mb": 7166,
+      "rows": 1000000,
+      "found": null,
+      "expected": null,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    }
+  ]
+}
