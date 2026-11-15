@@ -22,6 +22,7 @@ type OracleConfig struct {
 	Driver, ClientLib                            string
 	Repeat, FetchSize, PrefetchRows, TextColumns int
 	ProgressInterval                             int64
+	RepeatSingle                                 bool
 }
 
 func OracleConfigFromEnv() OracleConfig {
@@ -34,6 +35,7 @@ func OracleConfigFromEnv() OracleConfig {
 		Driver:           String("ORACLE_DRIVER", "godror"),
 		ClientLib:        String("ORACLE_CLIENT_LIB", ""),
 		Repeat:           int(Int("ORACLE_REPEAT", 1)),
+		RepeatSingle:     Bool("ORACLE_REPEAT_SINGLE", false),
 		FetchSize:        int(Int("ORACLE_FETCH_SIZE", defaultFetchSize(String("ORACLE_DRIVER", "godror")))),
 		PrefetchRows:     int(Int("ORACLE_PREFETCH_ROWS", 0)),
 		TextColumns:      int(Int("ORACLE_TEXT_COLUMNS", 70)),
@@ -151,6 +153,16 @@ func (s *OracleSource) selectSQL() (string, error) {
 		}
 		// The pass number prefixes REFERENCE, so the passes concatenate into one sorted file.
 		// The table must hold a single day, or the passes would interleave days.
+		if s.config.RepeatSingle {
+			// ORACLE_REPEAT_SINGLE: cả ngày trong một câu SELECT (UNION ALL các lượt) như khi chạy thật,
+			// thay vì chạy lại câu SELECT ở mỗi lượt. Sai thứ tự thì SSTFileWriter báo lỗi.
+			parts := make([]string, s.config.Repeat)
+			for p := range parts {
+				parts[p] = fmt.Sprintf("SELECT * FROM (SELECT ID + %d * %d, LPAD('%d', 4, '0') || REFERENCE, CREATED_AT%s FROM %s ORDER BY TRUNC(CREATED_AT), REFERENCE)",
+					p, repeatIDStep, p, texts.String(), s.config.Table)
+			}
+			return strings.Join(parts, " UNION ALL "), nil
+		}
 		return fmt.Sprintf("SELECT ID + :1 * %d, LPAD(:2, 4, '0') || REFERENCE, CREATED_AT%s FROM %s ORDER BY TRUNC(CREATED_AT), REFERENCE",
 			repeatIDStep, texts.String(), s.config.Table), nil
 	}
@@ -164,11 +176,11 @@ func (s *OracleSource) selectSQL() (string, error) {
 func (s *OracleSource) Next() (bool, error) {
 	for {
 		if s.rows == nil {
-			if s.pass == s.config.Repeat {
+			if s.pass == s.config.Repeat || (s.config.RepeatSingle && s.pass == 1) {
 				return false, nil
 			}
 			var args []any
-			if s.config.Repeat > 1 {
+			if s.config.Repeat > 1 && !s.config.RepeatSingle {
 				args = []any{s.pass, s.pass}
 			}
 			if s.config.Driver == "godror" {
