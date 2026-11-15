@@ -1,0 +1,42 @@
+{
+  "dataset": "status",
+  "impl": "java-rocksdb",
+  "variant": "pidx",
+  "op": "dump",
+  "n": null,
+  "cache": null,
+  "repeat": 10,
+  "sample": null,
+  "time": "2026-11-15 20:25",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_REPEAT=10 ORACLE_TABLE=ARCHIVE_STATUS",
+  "archive": "data/java-rocksdb-status-pidx",
+  "summary": {
+    "runs": 1,
+    "wall_s": 460.027,
+    "cpu_s": 309.427,
+    "peak_rss_mb": 620,
+    "file_mb": 5948,
+    "rows": 1000000,
+    "found": null,
+    "expected": null,
+    "checked": null,
+    "matched": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 460.027,
+      "cpu_s": 309.427,
+      "peak_rss_mb": 620,
+      "file_mb": 5948,
+      "rows": 1000000,
+      "found": null,
+      "expected": null,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    }
+  ]
+}

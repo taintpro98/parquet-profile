@@ -21,6 +21,7 @@ import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.BloomFilter;
 import org.rocksdb.CompressionType;
 import org.rocksdb.EnvOptions;
+import org.rocksdb.IndexType;
 import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.LRUCache;
 import org.rocksdb.Options;
@@ -38,7 +39,8 @@ import org.rocksdb.SstFileWriter;
  * <p>Đọc: mở DB chỉ đọc, {@code multiGetAsList}. Index và bloom filter nằm trong block cache có giới hạn
  * ROCKSDB_CACHE_BYTES, để RAM native không vượt mức đặt ra.
  *
- * <p>Settings: ROCKSDB_BLOCK_BYTES (65536), ROCKSDB_CACHE_BYTES (64 MiB).
+ * <p>Settings: ROCKSDB_BLOCK_BYTES (65536), ROCKSDB_CACHE_BYTES (64 MiB), ROCKSDB_CACHE_SHARD_BITS (-1 = tự chọn),
+ * ROCKSDB_INDEX (partitioned | binary), ROCKSDB_CACHE_INDEX (true), ROCKSDB_METADATA_BYTES (4096).
  */
 public final class RocksdbStore implements Archive {
 
@@ -61,17 +63,37 @@ public final class RocksdbStore implements Archive {
 
     /** Mọi đối tượng native được đóng cùng nhau; RocksDB không để JVM tự dọn chúng. */
     private static final class Config implements AutoCloseable {
-        final LRUCache cache = new LRUCache(Settings.number("ROCKSDB_CACHE_BYTES", 64L << 20));
+        final LRUCache cache = new LRUCache(Settings.number("ROCKSDB_CACHE_BYTES", 64L << 20),
+                Settings.integer("ROCKSDB_CACHE_SHARD_BITS", -1));
         final BloomFilter bloom = new BloomFilter(10);
         final Options options = new Options()
                 .setCompressionType(CompressionType.ZSTD_COMPRESSION)
                 .setBottommostCompressionType(CompressionType.ZSTD_COMPRESSION)
-                .setTableFormatConfig(new BlockBasedTableConfig()
-                        .setBlockSize(Settings.integer("ROCKSDB_BLOCK_BYTES", 64 << 10))
-                        .setFilterPolicy(bloom)
-                        .setCacheIndexAndFilterBlocks(true)
-                        .setPinL0FilterAndIndexBlocksInCache(true)
-                        .setBlockCache(cache));
+                .setTableFormatConfig(table(bloom, cache));
+
+        /**
+         * ROCKSDB_INDEX=partitioned (mặc định): index và bloom chia mảnh
+         * (kTwoLevelIndexSearch), mảnh cấp trên ghim trong cache, mỗi lần tra chỉ nạp một mảnh nhỏ. binary:
+         * index một khối (mặc định của RocksDB); với dòng ~21 KB index lớn hơn một shard của cache nên bị nạp
+         * lại ở mỗi key, thời gian tra tăng theo kích thước file (đo được: 9.6 s → 19.2 s cho 1000 key, 1M → 2M).
+         * ROCKSDB_CACHE_INDEX=false: index/bloom giữ ngoài block cache, nạp một lần khi mở file.
+         */
+        private static BlockBasedTableConfig table(BloomFilter bloom, LRUCache cache) {
+            BlockBasedTableConfig table = new BlockBasedTableConfig()
+                    .setBlockSize(Settings.integer("ROCKSDB_BLOCK_BYTES", 64 << 10))
+                    .setFilterPolicy(bloom)
+                    .setCacheIndexAndFilterBlocks(Settings.flag("ROCKSDB_CACHE_INDEX", true))
+                    .setCacheIndexAndFilterBlocksWithHighPriority(true)
+                    .setPinL0FilterAndIndexBlocksInCache(true)
+                    .setBlockCache(cache);
+            if (Settings.string("ROCKSDB_INDEX", "partitioned").equals("partitioned")) {
+                table.setIndexType(IndexType.kTwoLevelIndexSearch)
+                        .setPartitionFilters(true)
+                        .setMetadataBlockSize(Settings.integer("ROCKSDB_METADATA_BYTES", 4096))
+                        .setPinTopLevelIndexAndFilter(true);
+            }
+            return table;
+        }
 
         @Override
         public void close() {

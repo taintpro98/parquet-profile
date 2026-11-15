@@ -1,8 +1,0 @@
-{
-  "dataset": "status30",
-  "table": "ARCHIVE_STATUS",
-  "rows": 100000,
-  "table_mb": 1779.0,
-  "index_mb": 7.0,
-  "time": "2026-11-14 14:33"
-}

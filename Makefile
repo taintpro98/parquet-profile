@@ -33,6 +33,8 @@ export ORACLE_TABLE ?= ARCHIVE_$(shell echo $(SEED_MODE) | tr a-z A-Z)
 # native như DuckDB, Arrow, zstd). Java: heap tối đa; Go: giới hạn mềm của bộ dọn rác.
 export JAVA_OPTS ?= -Xmx2g
 export GOMEMLIMIT ?= 2GiB
+# Go đọc Oracle bằng godror (ODPI-C), cần Oracle Instant Client; ORACLE_DRIVER=go-ora để dùng driver Go thuần.
+export ORACLE_CLIENT_LIB ?= $(HOME)/oracle/instantclient_23_3
 
 JAVA_HOME ?= $(or $(shell /usr/libexec/java_home -v 25 2>/dev/null),$(firstword $(wildcard $(HOME)/.jdk/jdk-25*/Contents/Home)))
 MVN       ?= $(or $(shell command -v mvn),$(firstword $(wildcard $(HOME)/.m2/wrapper/dists/apache-maven-*/*/bin/mvn)))

@@ -25,7 +25,8 @@ import (
 //
 // Đọc: mở DB chỉ đọc, MultiGet. Index và bloom filter nằm trong block cache có giới hạn.
 //
-// Settings: ROCKSDB_BLOCK_BYTES (65536), ROCKSDB_CACHE_BYTES (64 MiB).
+// Settings: ROCKSDB_BLOCK_BYTES (65536), ROCKSDB_CACHE_BYTES (64 MiB), ROCKSDB_INDEX (partitioned | binary),
+// ROCKSDB_METADATA_BYTES (4096).
 type Rocksdb struct{}
 
 func init() { Register("rocksdb", func() common.Archive { return Rocksdb{} }) }
@@ -40,8 +41,18 @@ func rocksdbOptions() (*grocksdb.Options, func()) {
 	table.SetBlockSize(int(common.Int("ROCKSDB_BLOCK_BYTES", 64<<10)))
 	table.SetFilterPolicy(grocksdb.NewBloomFilter(10))
 	table.SetCacheIndexAndFilterBlocks(true)
+	table.SetCacheIndexAndFilterBlocksWithHighPriority(true)
 	table.SetPinL0FilterAndIndexBlocksInCache(true)
 	table.SetBlockCache(cache)
+	// partitioned (mặc định): index và bloom chia mảnh, mảnh cấp trên ghim trong cache, mỗi lần tra chỉ
+	// nạp một mảnh nhỏ. binary: index một khối; với dòng ~21 KB index lớn hơn một shard của cache nên bị
+	// nạp lại ở mỗi key, thời gian tra tăng theo kích thước file.
+	if common.String("ROCKSDB_INDEX", "partitioned") == "partitioned" {
+		table.SetIndexType(grocksdb.KTwoLevelIndexSearchIndexType)
+		table.SetPartitionFilters(true)
+		table.SetMetadataBlockSize(uint64(common.Int("ROCKSDB_METADATA_BYTES", 4096)))
+		table.SetPinTopLevelIndexAndFilter(true)
+	}
 	opts := grocksdb.NewDefaultOptions()
 	opts.SetCompression(grocksdb.ZSTDCompression)
 	opts.SetBottommostCompression(grocksdb.ZSTDCompression)

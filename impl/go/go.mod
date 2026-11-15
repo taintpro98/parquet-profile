@@ -5,6 +5,7 @@ go 1.27.3
 require (
 	github.com/apache/arrow-go/v18 v18.5.1
 	github.com/duckdb/duckdb-go/v2 v2.20000.0
+	github.com/godror/godror v0.52.0
 	github.com/klauspost/compress v1.18.3
 	github.com/linxGnu/grocksdb v1.11.1
 	github.com/parquet-go/parquet-go v0.32.0
@@ -12,10 +13,13 @@ require (
 )
 
 require (
+	github.com/VictoriaMetrics/easyproto v0.1.4 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/duckdb/duckdb-go-bindings v0.20000.0 // indirect
+	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/godror/knownpb v0.3.0 // indirect
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect

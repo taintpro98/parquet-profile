@@ -20,7 +20,7 @@ make find N=1000  IMPL=java-rocksdb   # tra N key đầu của bộ đã bốc, 
 make find-unknown IMPL=java-rocksdb   # tra 1 key không tồn tại, phải trả rỗng
 make bench        IMPL=all            # dump + find N=1 + find N=1000 + find-unknown
 
-make summary                          # vẽ report.html từ mọi kết quả trong results/
+make summary                          # vẽ final-report.html (3 candidate) từ results/
 make list                             # các phương án hiện có
 ```
 
@@ -32,6 +32,8 @@ make list                             # các phương án hiện có
 | `N` / `SIZE` | số key tra / số key bốc | `1000` |
 | `RUNS` | số lần đo (find có thêm 1 lần làm nóng) | dump 1, find 3 |
 | `CACHE` | `warm` hoặc `cold` (xoá cache hệ điều hành, cần `sudo -n`) | `warm` |
+| `ORACLE_FETCH_SIZE` | số dòng mỗi lô fetch từ Oracle | Go (godror) `1000`, Java (ojdbc) `10000` |
+| `ORACLE_PREFETCH_ROWS` | Go (godror): số dòng đọc trước vào buffer riêng; `-1` = lô + 1 | `0` (tắt) |
 | `LABEL` | tên cấu hình, tách archive và kết quả, ví dụ `2m` | trống |
 
 Cấu hình từng phương án qua biến môi trường (`PARQUET_*`, `ROCKSDB_*`, `AVRO_*`…, xem đầu file của
@@ -46,7 +48,8 @@ bench/samples/<bộ>/r<lượt>/            bộ key đã bốc + bản ghi từ
 results/<bộ>/oracle.json               dung lượng bảng + index trong Oracle
 results/<bộ>/<phương án>[-<label>]/    dump.json, find-<N>.json, find-unknown.json, logs/
 data/<phương án>-<bộ>[-<label>]/       archive, mỗi ngày một file (hoặc thư mục) YYYY-MM-DD.<đuôi>
-report.html                            make summary vẽ ra
+final-report.html                      make summary vẽ ra (3 candidate)
+report.html                            báo cáo cũ của mọi phương án, không vẽ lại
 ```
 
 Đo từ ngoài tiến trình (`wait4`/rusage): wall, CPU, RAM đỉnh (RSS). Thời gian lấy trung vị, RAM lấy
@@ -61,7 +64,7 @@ impl/java/src/main/java/com/mbbank/archive/
 impl/go/
   common/      Archive (interface), Oracle, dump/find theo ngày, sample, JSONL
   archive/     mỗi phương án đúng 1 file, tự đăng ký trong init()
-bench/         bench.py (runner), report_html.py (mẫu report.html)
+bench/         bench.py (runner), final_report.py (mẫu final-report.html), report_html.py (mẫu report.html cũ, không dùng)
 seed/          seed.sh, gen/ (bộ sinh dữ liệu Go)
 ```
 
@@ -75,7 +78,7 @@ là việc của phần chung.
 | --- | --- | --- | --- |
 | `parquet-duckdb` | Java, Go | Parquet, ZSTD, row group 128 MB | DuckDB `WHERE reference IN (...)` |
 | `parquet-lookup` | Java, Go | Parquet + bloom filter trên reference + page 64 KB | thư viện Parquet đọc thẳng, bloom filter + page index |
-| `rocksdb` | Java, Go | RocksDB, mỗi ngày một DB, ZSTD, bloom filter | `multiGet` |
+| `rocksdb` | Java, Go | RocksDB, mỗi ngày một DB, ZSTD, bloom filter, index phân vùng | `multiGet` |
 | `orc` | Java | ORC, ZSTD, bloom filter + row index | `SearchArgument IN` |
 | `avro` | Java | Avro container, ZSTD, block 64 KB | tìm nhị phân bằng `sync(pos)` |
 | `arrow-zstd`, `rowblock-zstd` | Java, Go | có phần tự chế | giữ số cũ, không đo lại |

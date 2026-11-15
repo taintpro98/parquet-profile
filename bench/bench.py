@@ -17,7 +17,7 @@ Mỗi lệnh ghi một file kết quả, ghi đè đúng file của phần vừa
   results/<SEED_MODE>/<impl>[-<label>]/dump.json | find-<N>.json | find-unknown.json  (+ -cold)
   results/<SEED_MODE>/<impl>[-<label>]/logs/      (output của lần chạy gần nhất)
   results/<SEED_MODE>/oracle.json                 (make seed ghi)
-summary đọc mọi file đó và vẽ report.html ở thư mục gốc; phần chưa có kết quả thì để trống.
+summary đọc các file đó và vẽ final-report.html ở thư mục gốc (3 candidate); phần chưa có kết quả ghi "đang đo".
 Archive nằm ở data/<impl>-<SEED_MODE>[-<label>]/, mỗi ngày một file YYYY-MM-DD.<đuôi>.
 """
 
@@ -35,18 +35,16 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from report_html import write_html
 
 ROOT = Path(__file__).resolve().parent.parent
 MODE = os.environ.get("SEED_MODE", "random")  # bộ dữ liệu: random | status
 REPEAT = int(os.environ.get("ORACLE_REPEAT", "1"))
 SAMPLES = ROOT / "bench" / "samples" / MODE / f"r{REPEAT}"
 RESULTS = ROOT / "results"
-REPORT_HTML = ROOT / "report.html"
 DATA = ROOT / "data"
 
 # Biến môi trường ảnh hưởng tới số đo, được ghi kèm mỗi kết quả.
-SETTING_PREFIXES = ("PARQUET_", "DUCKDB_", "ARROW_", "BLOCK_", "ORACLE_REPEAT", "ORACLE_FETCH_SIZE", "ORACLE_QUERY",
+SETTING_PREFIXES = ("PARQUET_", "DUCKDB_", "ARROW_", "BLOCK_", "ROCKSDB_", "ORC_", "AVRO_", "ORACLE_REPEAT", "ORACLE_FETCH_SIZE", "ORACLE_PREFETCH_ROWS", "ORACLE_DRIVER", "ORACLE_QUERY",
                     "ORACLE_TABLE", "JAVA_OPTS", "GOGC", "GOMEMLIMIT", "GOMAXPROCS")
 
 
@@ -270,39 +268,11 @@ def write_result(out_dir, name, args, runs, archive, meta):
 
 
 def summary():
-    """Đọc mọi file kết quả trong results/ và vẽ report.html. Thiếu phần nào thì phần đó để trống."""
-    entries, oracle, machines, skipped = [], {}, set(), []
-    for path in sorted(RESULTS.glob("*/oracle.json")):
-        try:
-            o = json.loads(path.read_text())
-            oracle[path.parent.name] = {"rows": o["rows"], "table_mb": o["table_mb"], "index_mb": o["index_mb"]}
-        except (ValueError, KeyError) as e:
-            skipped.append(f"{path.relative_to(ROOT)} ({e})")
-    for path in sorted(RESULTS.glob("*/*/*.json")):
-        try:
-            r = json.loads(path.read_text())
-            s = r["summary"]
-            op = r["op"]
-            scenario = r.get("scenario") or ""
-            if op == "find" and r.get("n") is not None:
-                scenario = str(r["n"])
-            elif op == "find-unknown":
-                op, scenario = "find", "unknown"
-            entries.append({
-                "impl": r["impl"], "label": r["dataset"] + (f"-{r['variant']}" if r.get("variant") else ""),
-                "op": op, "scenario": scenario, "cache": r.get("cache") or "",
-                "checked": s.get("checked"), "matched": s.get("matched"), "sample": r.get("sample"),
-                "runs": s["runs"], "wall": s["wall_s"], "cpu": s["cpu_s"], "ram": s["peak_rss_mb"],
-                "file": s.get("file_mb"), "rows": s.get("rows"), "found": s.get("found"), "ok": s["ok"],
-                "settings": r.get("settings", ""), "date": r.get("time", ""),
-            })
-            machines.add(r.get("machine", ""))
-        except (ValueError, KeyError) as e:
-            skipped.append(f"{path.relative_to(ROOT)} ({e})")
-    write_html(REPORT_HTML, entries, oracle, " / ".join(sorted(m for m in machines if m)) or machine())
-    print(f"{REPORT_HTML.relative_to(ROOT)}  ← {len(entries)} kết quả, mở bằng trình duyệt")
-    for s in skipped:
-        print(f"  bỏ qua file hỏng: {s}")
+    """Đọc results/ và vẽ final-report.html (3 candidate). Ô nào chưa có kết quả thì ghi "đang đo".
+    report.html là báo cáo cũ của mọi phương án, giữ nguyên, không vẽ lại."""
+    import final_report  # đọc results/ lúc import, nên import ở đây để lấy số mới nhất
+    path, missing = final_report.write()
+    print(f"{path.relative_to(ROOT)}  ← mở bằng trình duyệt" + (f" · còn {len(missing)} ô đang đo" if missing else ""))
 
 
 def main():

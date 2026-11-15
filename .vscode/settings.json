@@ -1,0 +1,8 @@
+{
+  "java.jdt.ls.java.home": "/Users/mac/.jdk/jdk-25.0.5+8/Contents/Home",
+  "java.configuration.runtimes": [
+    { "name": "JavaSE-25", "path": "/Users/mac/.jdk/jdk-25.0.5+8/Contents/Home", "default": true }
+  ],
+  "java.import.maven.enabled": true,
+  "java.configuration.updateBuildConfiguration": "automatic"
+}
