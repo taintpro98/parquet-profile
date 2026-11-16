@@ -148,7 +148,7 @@ func rowsByID(ctx context.Context, conn *sql.Conn, c OracleConfig, ids []int64) 
 				createdAt.Minute(), createdAt.Second(), createdAt.Nanosecond(), time.UTC)
 			row.Texts = make([]*string, c.TextColumns)
 			for i, n := range nulls {
-				if n.Valid {
+				if n.Valid && n.String != "" { // Oracle: VARCHAR2 rỗng là NULL; godror trả NULL thành ""
 					value := n.String
 					row.Texts[i] = &value
 				}

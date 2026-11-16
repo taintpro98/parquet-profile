@@ -20,7 +20,7 @@ make find N=1000  IMPL=java-rocksdb   # tra N key đầu của bộ đã bốc, 
 make find-unknown IMPL=java-rocksdb   # tra 1 key không tồn tại, phải trả rỗng
 make bench        IMPL=all            # dump + find N=1 + find N=1000 + find-unknown
 
-make summary                          # vẽ final-report.html (3 candidate) từ results/
+make summary                          # vẽ final.html (3 candidate) từ results/
 make list                             # các phương án hiện có
 ```
 
@@ -33,6 +33,7 @@ make list                             # các phương án hiện có
 | `RUNS` | số lần đo (find có thêm 1 lần làm nóng) | dump 1, find 3 |
 | `CACHE` | `warm` hoặc `cold` (xoá cache hệ điều hành, cần `sudo -n`) | `warm` |
 | `ORACLE_FETCH_SIZE` | số dòng mỗi lô fetch từ Oracle | Go (godror) `1000`, Java (ojdbc) `10000` |
+| `ORACLE_REPEAT_SINGLE` | `true`: đọc cả ngày bằng một câu SELECT (`UNION ALL` các lượt) như khi chạy thật | `false` |
 | `ORACLE_PREFETCH_ROWS` | Go (godror): số dòng đọc trước vào buffer riêng; `-1` = lô + 1 | `0` (tắt) |
 | `LABEL` | tên cấu hình, tách archive và kết quả, ví dụ `2m` | trống |
 
@@ -48,7 +49,8 @@ bench/samples/<bộ>/r<lượt>/            bộ key đã bốc + bản ghi từ
 results/<bộ>/oracle.json               dung lượng bảng + index trong Oracle
 results/<bộ>/<phương án>[-<label>]/    dump.json, find-<N>.json, find-unknown.json, logs/
 data/<phương án>-<bộ>[-<label>]/       archive, mỗi ngày một file (hoặc thư mục) YYYY-MM-DD.<đuôi>
-final-report.html                      make summary vẽ ra (3 candidate)
+final.html                             make summary vẽ ra (3 candidate, một câu SELECT mỗi ngày)
+final-report.html                      bản trước của final.html, không vẽ lại
 report.html                            báo cáo cũ của mọi phương án, không vẽ lại
 ```
 
@@ -64,7 +66,7 @@ impl/java/src/main/java/com/mbbank/archive/
 impl/go/
   common/      Archive (interface), Oracle, dump/find theo ngày, sample, JSONL
   archive/     mỗi phương án đúng 1 file, tự đăng ký trong init()
-bench/         bench.py (runner), final_report.py (mẫu final-report.html), report_html.py (mẫu report.html cũ, không dùng)
+bench/         bench.py (runner), final_html.py (mẫu final.html), final_report.py (mẫu final-report.html, không dùng), report_html.py (mẫu report.html cũ, không dùng)
 seed/          seed.sh, gen/ (bộ sinh dữ liệu Go)
 ```
 

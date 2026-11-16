@@ -11,8 +11,8 @@
 
 - Mỗi lần chạy benchmark lưu kết quả thành file trong `results/`, để chạy riêng từng phương án / bộ
   dữ liệu / kịch bản mà không phải chạy lại tất cả.
-- Một lệnh summarize riêng (`make summary`) đọc các file trong `results/` và vẽ `final-report.html` ở thư mục gốc
-  (chỉ 3 candidate). `report.html` là báo cáo cũ của mọi phương án, giữ nguyên, không vẽ lại.
+- Một lệnh summarize riêng (`make summary`) đọc các file trong `results/` và vẽ `final.html` ở thư mục gốc
+  (chỉ 3 candidate). `report.html` và `final-report.html` là các bản trước, giữ nguyên, không vẽ lại.
   Thiếu dữ liệu phần nào thì để trống phần đó, không báo lỗi.
 
 ## Bài toán (đọc trước khi thiết kế phương án)

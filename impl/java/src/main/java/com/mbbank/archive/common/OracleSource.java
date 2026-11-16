@@ -21,6 +21,7 @@ public final class OracleSource implements RowCursor, AutoCloseable {
             String table,
             String query,
             int repeat,
+            boolean repeatSingle,
             int fetchSize,
             int textColumns,
             long progressInterval) {
@@ -33,13 +34,15 @@ public final class OracleSource implements RowCursor, AutoCloseable {
                     Settings.string("ORACLE_TABLE", "ARCHIVE_RANDOM"),
                     Settings.string("ORACLE_QUERY", ""),
                     Settings.integer("ORACLE_REPEAT", 1),
+                    Settings.flag("ORACLE_REPEAT_SINGLE", false),
                     Settings.integer("ORACLE_FETCH_SIZE", 10_000),
                     Settings.integer("ORACLE_TEXT_COLUMNS", 70),
                     Settings.number("PROGRESS_INTERVAL", 500_000));
         }
 
         public Config withTable(String table) {
-            return new Config(url, username, password, table, query, repeat, fetchSize, textColumns, progressInterval);
+            return new Config(url, username, password, table, query, repeat, repeatSingle, fetchSize, textColumns,
+                    progressInterval);
         }
     }
 
@@ -59,7 +62,8 @@ public final class OracleSource implements RowCursor, AutoCloseable {
         try {
             useBinarySort(connection);
             this.statement = connection.prepareStatement(
-                    config.repeat() > 1 ? repeatedSelectSql() : selectSql(),
+                    config.repeat() > 1 ? (config.repeatSingle() ? singleRepeatedSelectSql() : repeatedSelectSql())
+                            : selectSql(),
                     ResultSet.TYPE_FORWARD_ONLY,
                     ResultSet.CONCUR_READ_ONLY);
             statement.setFetchSize(config.fetchSize());
@@ -73,10 +77,10 @@ public final class OracleSource implements RowCursor, AutoCloseable {
     public boolean next() throws SQLException {
         while (true) {
             if (resultSet == null) {
-                if (pass == config.repeat()) {
+                if (pass == config.repeat() || (config.repeatSingle() && pass == 1)) {
                     return false;
                 }
-                if (config.repeat() > 1) {
+                if (config.repeat() > 1 && !config.repeatSingle()) {
                     statement.setInt(1, pass);
                     statement.setInt(2, pass);
                 }
@@ -158,6 +162,26 @@ public final class OracleSource implements RowCursor, AutoCloseable {
         }
         return "SELECT ID + ? * " + REPEAT_ID_STEP + ", LPAD(?, 4, '0') || REFERENCE, CREATED_AT" + textColumnList()
                 + " FROM " + config.table() + " ORDER BY TRUNC(CREATED_AT), REFERENCE";
+    }
+
+    /**
+     * ORACLE_REPEAT_SINGLE: the whole day in one SELECT (UNION ALL of the passes), like production,
+     * instead of re-running the SELECT for every pass. Out-of-order keys make the archive writers fail.
+     */
+    private String singleRepeatedSelectSql() {
+        if (!config.query().isBlank()) {
+            throw new IllegalArgumentException("ORACLE_REPEAT cannot be combined with ORACLE_QUERY");
+        }
+        StringBuilder sql = new StringBuilder();
+        for (int p = 0; p < config.repeat(); p++) {
+            if (p > 0) {
+                sql.append(" UNION ALL ");
+            }
+            sql.append("SELECT * FROM (SELECT ID + ").append(p).append(" * ").append(REPEAT_ID_STEP)
+                    .append(", LPAD('").append(p).append("', 4, '0') || REFERENCE, CREATED_AT").append(textColumnList())
+                    .append(" FROM ").append(config.table()).append(" ORDER BY TRUNC(CREATED_AT), REFERENCE)");
+        }
+        return sql.toString();
     }
 
     private String textColumnList() {

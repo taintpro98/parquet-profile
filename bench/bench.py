@@ -17,7 +17,7 @@ Mỗi lệnh ghi một file kết quả, ghi đè đúng file của phần vừa
   results/<SEED_MODE>/<impl>[-<label>]/dump.json | find-<N>.json | find-unknown.json  (+ -cold)
   results/<SEED_MODE>/<impl>[-<label>]/logs/      (output của lần chạy gần nhất)
   results/<SEED_MODE>/oracle.json                 (make seed ghi)
-summary đọc các file đó và vẽ final-report.html ở thư mục gốc (3 candidate); phần chưa có kết quả ghi "đang đo".
+summary đọc các file đó và vẽ final.html ở thư mục gốc (3 candidate); phần chưa có kết quả ghi "đang đo".
 Archive nằm ở data/<impl>-<SEED_MODE>[-<label>]/, mỗi ngày một file YYYY-MM-DD.<đuôi>.
 """
 
@@ -268,10 +268,10 @@ def write_result(out_dir, name, args, runs, archive, meta):
 
 
 def summary():
-    """Đọc results/ và vẽ final-report.html (3 candidate). Ô nào chưa có kết quả thì ghi "đang đo".
-    report.html là báo cáo cũ của mọi phương án, giữ nguyên, không vẽ lại."""
-    import final_report  # đọc results/ lúc import, nên import ở đây để lấy số mới nhất
-    path, missing = final_report.write()
+    """Đọc results/ và vẽ final.html (3 candidate, một câu SELECT mỗi ngày). Ô nào chưa có kết quả ghi "đang đo".
+    report.html và final-report.html là các bản trước, giữ nguyên, không vẽ lại."""
+    import final_html  # đọc results/ lúc import, nên import ở đây để lấy số mới nhất
+    path, missing = final_html.write()
     print(f"{path.relative_to(ROOT)}  ← mở bằng trình duyệt" + (f" · còn {len(missing)} ô đang đo" if missing else ""))
 
 

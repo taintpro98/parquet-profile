@@ -1,0 +1,68 @@
+{
+  "dataset": "status",
+  "impl": "java-parquet-duckdb",
+  "variant": "single",
+  "op": "find",
+  "n": 1,
+  "cache": "warm",
+  "repeat": 10,
+  "sample": "89911377",
+  "time": "2026-11-16 01:47",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g",
+  "archive": "data/java-parquet-duckdb-status-single",
+  "summary": {
+    "runs": 3,
+    "wall_s": 1.671,
+    "cpu_s": 1.22,
+    "peak_rss_mb": 366,
+    "file_mb": null,
+    "rows": null,
+    "found": 1,
+    "expected": 1,
+    "checked": 1,
+    "matched": 1,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 1.671,
+      "cpu_s": 1.236,
+      "peak_rss_mb": 366,
+      "file_mb": null,
+      "rows": null,
+      "found": 1,
+      "expected": 1,
+      "checked": 1,
+      "matched": 1,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 1.706,
+      "cpu_s": 1.22,
+      "peak_rss_mb": 363,
+      "file_mb": null,
+      "rows": null,
+      "found": 1,
+      "expected": 1,
+      "checked": 1,
+      "matched": 1,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 1.66,
+      "cpu_s": 1.174,
+      "peak_rss_mb": 364,
+      "file_mb": null,
+      "rows": null,
+      "found": 1,
+      "expected": 1,
+      "checked": 1,
+      "matched": 1,
+      "ok": true
+    }
+  ]
+}
