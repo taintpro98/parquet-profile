@@ -12,7 +12,9 @@
 - Mỗi lần chạy benchmark lưu kết quả thành file trong `results/`, để chạy riêng từng phương án / bộ
   dữ liệu / kịch bản mà không phải chạy lại tất cả.
 - Một lệnh summarize riêng (`make summary`) đọc các file trong `results/` và vẽ `final.html` ở thư mục gốc
-  (chỉ 3 candidate). `report.html` và `final-report.html` là các bản trước, giữ nguyên, không vẽ lại.
+  (chỉ 3 candidate), kèm `upgrade.html` (thử nén RocksDB tốt hơn, `bench/upgrade_html.py`). Kết quả mới
+  ngoài 3 candidate ghi vào `upgrade.html`, không sửa `final.html`. `report.html` và `final-report.html`
+  là các bản trước, giữ nguyên, không vẽ lại.
   Thiếu dữ liệu phần nào thì để trống phần đó, không báo lỗi.
 
 ## Bài toán (đọc trước khi thiết kế phương án)

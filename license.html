@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>License archive ColdBoy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --fg: #17202b; --muted: #5b6676; --line: #dfe3e9;
+  --accent: #1f5fae; --accent-soft: #e6eefa; --best: #e3f4ea; --best-fg: #17603a;
+  --warn: #fdf3dd; --warn-fg: #7a5200; --group: #eef1f5;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f141b; --surface: #161d27; --fg: #e6ebf1; --muted: #98a3b3; --line: #2a3442;
+  --accent: #79a9ea; --accent-soft: #1c2a3d; --best: #173325; --best-fg: #8fd8ac;
+  --warn: #332812; --warn-fg: #f0c674; --group: #1b2330; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f141b; --surface: #161d27; --fg: #e6ebf1; --muted: #98a3b3; --line: #2a3442;
+  --accent: #79a9ea; --accent-soft: #1c2a3d; --best: #173325; --best-fg: #8fd8ac;
+  --warn: #332812; --warn-fg: #f0c674; --group: #1b2330; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.6 "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 36px; }
+header { display: grid; gap: 8px; }
+.eyebrow { font: 500 12px/1 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font-size: clamp(26px, 4vw, 34px); line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 21px; margin: 0 0 12px; text-wrap: balance; }
+h3 { font-size: 16px; margin: 20px 0 8px; }
+p, li { max-width: 72ch; }
+p { margin: 0 0 10px; }
+ul { margin: 0 0 10px; padding-left: 20px; }
+.lead { color: var(--muted); font-size: 16px; margin: 0; }
+section { min-width: 0; }
+.verdict { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+  border-radius: 10px; padding: 20px 22px; display: grid; gap: 6px; }
+.verdict p { margin: 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+.card h3 { margin: 6px 0 4px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 15px; }
+.card p { margin: 0; color: var(--muted); font-size: 14px; }
+.scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 14px; }
+th, td { padding: 9px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+thead th { font-weight: 600; color: var(--muted); font-size: 13px; background: var(--surface); }
+thead th small, tbody th small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+tbody th { font-weight: 500; }
+tr:last-child > * { border-bottom: 0; }
+.num { text-align: right; font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.best { background: var(--best); color: var(--best-fg); font-weight: 500; }
+tr.group th { background: var(--group); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.pending { color: var(--muted); font-style: italic; font-family: "Be Vietnam Pro", system-ui, sans-serif; }
+.callout { background: var(--warn); color: var(--warn-fg); border-radius: 8px; padding: 10px 14px; margin: 0; }
+.role { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+  background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.role-java-parquet { background: var(--group); color: var(--muted); }
+.note { color: var(--muted); font-size: 13px; margin-top: 8px; }
+code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .92em; }
+footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <span class="eyebrow">ColdBoy · license · 16/11/2026</span>
+  <h1>License: không dùng Oracle JDK, không có thành phần tính phí</h1>
+</header>
+
+<section class="verdict">
+  <p><b>Java chạy trên OpenJDK</b> (Eclipse Temurin), đúng chuẩn OpenJDK của MB. go-rocksdb không cần Java.</p>
+  <p><b>Thành phần của Oracle chỉ có driver đọc DB nguồn</b> (<code>ojdbc11</code>, Oracle Instant Client): miễn phí cho
+  production theo <i>Oracle Free Distribution, Hosting, and Use Terms</i>.</p>
+  <p><b>Mọi thư viện còn lại là mã nguồn mở</b> license dễ dãi (Apache 2.0, MIT, BSD); không có GPL thuần, AGPL hay
+  license thương mại.</p>
+</section>
+
+<section>
+  <h2>Theo từng phương án</h2>
+  <div class="scroll"><table class="plain"><thead><tr><th>Phương án</th><th>Runtime</th><th>Thành phần Oracle</th><th>Tốn phí?</th></tr></thead><tbody>
+  <tr><th scope=row>java-rocksdb</th><td>OpenJDK</td><td><code>ojdbc11</code> (chỉ bước dump)</td><td>Không</td></tr>
+  <tr><th scope=row>go-rocksdb</th><td>Không cần JVM</td><td>Oracle Instant Client (chỉ bước dump)</td><td>Không</td></tr>
+  <tr><th scope=row>java-parquet-duckdb</th><td>OpenJDK</td><td><code>ojdbc11</code> (chỉ bước dump)</td><td>Không</td></tr>
+  </tbody></table></div>
+  <p class="note">Phần lưu và tra (RocksDB, Parquet, DuckDB) không dính Oracle. Điều kiện duy nhất của license Oracle:
+  giữ kèm file license khi phân phối, không bán lại thư viện, không dịch ngược.</p>
+</section>
+
+<section>
+  <h2>Việc cần làm</h2>
+  <div class="scroll"><table class="plain"><thead><tr><th>Việc</th><th>Trạng thái</th></tr></thead><tbody>
+  <tr><th scope=row>Image triển khai dùng base OpenJDK (Temurin hoặc image nội bộ MB), không dùng image Oracle JDK</th><td>Khi đóng gói</td></tr>
+  <tr><th scope=row>Kèm file license / NOTICE của thư viện trong image</th><td>Khi đóng gói</td></tr>
+  <tr><th scope=row>Pháp chế MB xác nhận</th><td>Trước khi chốt</td></tr>
+  </tbody></table></div>
+</section>
+
+<footer>Kiểm tra trên mã nguồn và môi trường build của repo parquet-profile: đọc nguyên văn license của ojdbc và Instant
+Client, license của 47 thư viện Java và mọi module Go. Không phải ý kiến pháp lý.</footer>
+</main>
+</body>
+</html>

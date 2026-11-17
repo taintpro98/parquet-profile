@@ -1,0 +1,68 @@
+{
+  "dataset": "status",
+  "impl": "go-rocksdb",
+  "variant": "fair-off",
+  "op": "find-unknown",
+  "n": null,
+  "cache": "warm",
+  "repeat": 10,
+  "sample": "89911377",
+  "time": "2026-11-17 18:33",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_REPEAT=10 ORACLE_REPEAT_SINGLE=true ORACLE_TABLE=ARCHIVE_STATUS ROCKSDB_ZSTD_LEVEL=3",
+  "archive": "data/go-rocksdb-status-fair-off",
+  "summary": {
+    "runs": 3,
+    "wall_s": 0.015,
+    "cpu_s": 0.014,
+    "peak_rss_mb": 24,
+    "file_mb": null,
+    "rows": null,
+    "found": 0,
+    "expected": 0,
+    "checked": null,
+    "matched": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 0.015,
+      "cpu_s": 0.015,
+      "peak_rss_mb": 24,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 0.015,
+      "cpu_s": 0.014,
+      "peak_rss_mb": 24,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 0.015,
+      "cpu_s": 0.014,
+      "peak_rss_mb": 24,
+      "file_mb": null,
+      "rows": null,
+      "found": 0,
+      "expected": 0,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    }
+  ]
+}

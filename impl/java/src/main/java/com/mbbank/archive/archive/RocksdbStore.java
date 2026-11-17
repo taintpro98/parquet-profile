@@ -17,9 +17,12 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Properties;
 import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.BloomFilter;
-import org.rocksdb.CompressionType;
+import org.rocksdb.ColumnFamilyOptions;
+import org.rocksdb.ConfigOptions;
+import org.rocksdb.DBOptions;
 import org.rocksdb.EnvOptions;
 import org.rocksdb.IndexType;
 import org.rocksdb.IngestExternalFileOptions;
@@ -40,7 +43,8 @@ import org.rocksdb.SstFileWriter;
  * ROCKSDB_CACHE_BYTES, để RAM native không vượt mức đặt ra.
  *
  * <p>Settings: ROCKSDB_BLOCK_BYTES (65536), ROCKSDB_CACHE_BYTES (64 MiB), ROCKSDB_CACHE_SHARD_BITS (-1 = tự chọn),
- * ROCKSDB_INDEX (partitioned | binary), ROCKSDB_CACHE_INDEX (true), ROCKSDB_METADATA_BYTES (4096).
+ * ROCKSDB_INDEX (partitioned | binary), ROCKSDB_CACHE_INDEX (true), ROCKSDB_METADATA_BYTES (4096),
+ * ROCKSDB_ZSTD_DICT_BYTES / _TRAIN_BYTES / _BUFFER_BYTES / _LEVEL (xem Config.compression).
  */
 public final class RocksdbStore implements Archive {
 
@@ -66,10 +70,46 @@ public final class RocksdbStore implements Archive {
         final LRUCache cache = new LRUCache(Settings.number("ROCKSDB_CACHE_BYTES", 64L << 20),
                 Settings.integer("ROCKSDB_CACHE_SHARD_BITS", -1));
         final BloomFilter bloom = new BloomFilter(10);
-        final Options options = new Options()
-                .setCompressionType(CompressionType.ZSTD_COMPRESSION)
-                .setBottommostCompressionType(CompressionType.ZSTD_COMPRESSION)
-                .setTableFormatConfig(table(bloom, cache));
+        final DBOptions dbOptions = new DBOptions();
+        final ColumnFamilyOptions cfOptions = compression();
+        final Options options = new Options(dbOptions, cfOptions).setTableFormatConfig(table(bloom, cache));
+
+        /** RocksDB kDefaultCompressionLevel: ZSTD tự chọn mức mặc định (3). */
+        private static final int ZSTD_DEFAULT_LEVEL = 32767;
+
+        /**
+         * Nén ZSTD, giống setZstdOptions của bản Go. Dựng qua parser options native của RocksDB
+         * ({@code getColumnFamilyOptionsFromProps}) vì {@code CompressionOptions} của rocksdbjni 11.8 không có
+         * setter cho {@code max_dict_buffer_bytes}; parser native thì có. Parser chạy chế độ nghiêm ngặt: sai tên
+         * tham số thì báo lỗi, không âm thầm chạy với mặc định. Đặt cho cả compression_opts lẫn bottommost vì
+         * SstFileWriter dùng bottommost khi có. Không đặt biến môi trường thì chỉ chọn ZSTD, như cấu hình cũ.
+         *
+         * <p>ROCKSDB_ZSTD_DICT_BYTES (0 = tắt), ROCKSDB_ZSTD_TRAIN_BYTES (100 × dict), ROCKSDB_ZSTD_BUFFER_BYTES
+         * (64 MiB; 0 của RocksDB là giữ cả file SST trong RAM để lấy mẫu), ROCKSDB_ZSTD_LEVEL (mặc định của ZSTD).
+         */
+        private static ColumnFamilyOptions compression() {
+            int dict = Settings.integer("ROCKSDB_ZSTD_DICT_BYTES", 0);
+            int level = Settings.integer("ROCKSDB_ZSTD_LEVEL", ZSTD_DEFAULT_LEVEL);
+            Properties props = new Properties();
+            props.setProperty("compression", "kZSTD");
+            props.setProperty("bottommost_compression", "kZSTD");
+            if (dict > 0 || level != ZSTD_DEFAULT_LEVEL) {
+                long train = dict > 0 ? Settings.number("ROCKSDB_ZSTD_TRAIN_BYTES", dict * 100L) : 0;
+                long buffer = dict > 0 ? Settings.number("ROCKSDB_ZSTD_BUFFER_BYTES", 64L << 20) : 0;
+                String opts = "{level=" + level + ";max_dict_bytes=" + dict + ";zstd_max_train_bytes=" + train
+                        + ";max_dict_buffer_bytes=" + buffer + ";use_zstd_dict_trainer=true;enabled=true;}";
+                props.setProperty("compression_opts", opts);
+                props.setProperty("bottommost_compression_opts", opts);
+            }
+            try (ConfigOptions parser = new ConfigOptions().setIgnoreUnknownOptions(false)
+                    .setInputStringsEscaped(false)) {
+                ColumnFamilyOptions cf = ColumnFamilyOptions.getColumnFamilyOptionsFromProps(parser, props);
+                if (cf == null) {
+                    throw new IllegalArgumentException("RocksDB không nhận cấu hình nén: " + props);
+                }
+                return cf;
+            }
+        }
 
         /**
          * ROCKSDB_INDEX=partitioned (mặc định): index và bloom chia mảnh
@@ -98,6 +138,8 @@ public final class RocksdbStore implements Archive {
         @Override
         public void close() {
             options.close();
+            cfOptions.close();
+            dbOptions.close();
             bloom.close();
             cache.close();
         }

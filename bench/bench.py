@@ -271,8 +271,10 @@ def summary():
     """Đọc results/ và vẽ final.html (3 candidate, một câu SELECT mỗi ngày). Ô nào chưa có kết quả ghi "đang đo".
     report.html và final-report.html là các bản trước, giữ nguyên, không vẽ lại."""
     import final_html  # đọc results/ lúc import, nên import ở đây để lấy số mới nhất
-    path, missing = final_html.write()
-    print(f"{path.relative_to(ROOT)}  ← mở bằng trình duyệt" + (f" · còn {len(missing)} ô đang đo" if missing else ""))
+    import upgrade_html  # thử nén RocksDB tốt hơn, file riêng, không đụng final.html
+    for module in (final_html, upgrade_html):
+        path, missing = module.write()
+        print(f"{path.relative_to(ROOT)}  ← mở bằng trình duyệt" + (f" · còn {len(missing)} ô đang đo" if missing else ""))
 
 
 def main():

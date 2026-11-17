@@ -1,0 +1,42 @@
+{
+  "dataset": "status",
+  "impl": "go-rocksdb",
+  "variant": "dict",
+  "op": "dump",
+  "n": null,
+  "cache": null,
+  "repeat": 10,
+  "sample": null,
+  "time": "2026-11-16 13:39",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_REPEAT=10 ORACLE_REPEAT_SINGLE=true ORACLE_TABLE=ARCHIVE_STATUS ROCKSDB_ZSTD_DICT_BYTES=65536",
+  "archive": "data/go-rocksdb-status-dict",
+  "summary": {
+    "runs": 1,
+    "wall_s": 332.997,
+    "cpu_s": 191.619,
+    "peak_rss_mb": 284,
+    "file_mb": 5419,
+    "rows": 1000000,
+    "found": null,
+    "expected": null,
+    "checked": null,
+    "matched": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 332.997,
+      "cpu_s": 191.619,
+      "peak_rss_mb": 284,
+      "file_mb": 5419,
+      "rows": 1000000,
+      "found": null,
+      "expected": null,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    }
+  ]
+}

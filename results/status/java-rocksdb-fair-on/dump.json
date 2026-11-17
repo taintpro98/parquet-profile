@@ -1,0 +1,68 @@
+{
+  "dataset": "status",
+  "impl": "java-rocksdb",
+  "variant": "fair-on",
+  "op": "dump",
+  "n": null,
+  "cache": null,
+  "repeat": 10,
+  "sample": null,
+  "time": "2026-11-17 19:39",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_REPEAT=10 ORACLE_REPEAT_SINGLE=true ORACLE_TABLE=ARCHIVE_STATUS ROCKSDB_ZSTD_BUFFER_BYTES=16777216 ROCKSDB_ZSTD_DICT_BYTES=16384 ROCKSDB_ZSTD_LEVEL=3 ROCKSDB_ZSTD_TRAIN_BYTES=2097152",
+  "archive": "data/java-rocksdb-status-fair-on",
+  "summary": {
+    "runs": 3,
+    "wall_s": 497.142,
+    "cpu_s": 337.969,
+    "peak_rss_mb": 668,
+    "file_mb": 5661,
+    "rows": 1000000,
+    "found": null,
+    "expected": null,
+    "checked": null,
+    "matched": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 468.403,
+      "cpu_s": 337.969,
+      "peak_rss_mb": 668,
+      "file_mb": 5661,
+      "rows": 1000000,
+      "found": null,
+      "expected": null,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 497.142,
+      "cpu_s": 342.306,
+      "peak_rss_mb": 667,
+      "file_mb": 5661,
+      "rows": 1000000,
+      "found": null,
+      "expected": null,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 501.588,
+      "cpu_s": 337.744,
+      "peak_rss_mb": 644,
+      "file_mb": 5661,
+      "rows": 1000000,
+      "found": null,
+      "expected": null,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    }
+  ]
+}

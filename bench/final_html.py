@@ -15,7 +15,9 @@ CANDIDATES = [
      "format": "RocksDB (SST), index + bloom phân vùng, ZSTD", "stack": "Java 25, rocksdbjni, ojdbc lô 10.000"},
     {"id": "go-rocksdb", "dir": "go-rocksdb-single", "name": "go-rocksdb", "role": "Đối trọng",
      "format": "RocksDB (SST), cùng cấu hình với bản Java", "stack": "Go, grocksdb, godror lô 1.000, tắt prefetch"},
-    {"id": "java-parquet", "dir": "java-parquet-duckdb-single", "name": "java-parquet-duckdb", "role": "Để so",
+    # Dữ liệu lặp: đo lại ngày 16/11 trên file dump mới (nhãn probe), thay số tra cứu cũ không lặp lại được.
+    {"id": "java-parquet", "dir": "java-parquet-duckdb-single", "dirs": {"status": "java-parquet-duckdb-probe"},
+     "name": "java-parquet-duckdb", "role": "Để so",
      "format": "Parquet, row group 128 MB, dictionary, ZSTD", "stack": "Java 25, parquet-java ghi, DuckDB đọc, ojdbc lô 10.000"},
 ]
 DATASETS = [("random", "Dữ liệu ngẫu nhiên"), ("status", "Dữ liệu lặp (20% cột là trạng thái)")]
@@ -25,7 +27,7 @@ OPS = ["dump", "find-1", "find-1000", "find-unknown"]
 
 
 def load(c, ds, sfx, op):
-    p = ROOT / "results" / ds / f"{c['dir']}{sfx}" / f"{op}.json"
+    p = ROOT / "results" / ds / f"{c.get('dirs', {}).get(ds, c['dir'])}{sfx}" / f"{op}.json"
     if not p.exists():
         return None
     s = json.loads(p.read_text())["summary"]
@@ -237,9 +239,9 @@ footer {{ color: var(--muted); font-size: 13px; border-top: 1px solid var(--line
   <p><b>go-rocksdb</b> là đối trọng: cùng định dạng, file giống hệt; dump {num(gr("dump","wall_s"),fmt_s)} / RAM
   {num(gr("dump","peak_rss_mb"),fmt_mb)}, tra 1000 key {num(gr("find-1000","wall_s"),fmt_s)}. Cần Oracle Instant
   Client và cgo.</p>
-  <p><b>java-parquet-duckdb</b> nén tốt hơn {num(size_gain, lambda x: f"{x:.0f}%")}, nhưng dump cần RAM
-  {num(jp("dump","peak_rss_mb"),fmt_mb)} và tra 1000 key mất {num(jp("find-1000","wall_s"),fmt_s)}, tăng theo
-  kích thước file.</p>
+  <p><b>java-parquet-duckdb</b> nén tốt hơn {num(size_gain, lambda x: f"{x:.0f}%")}. Tra 1 key không chậm đi khi
+  file to ra, nhưng mỗi key phải đọc nguyên một row group (~117 MB) nên chậm hơn RocksDB nhiều lần; tra 1000 key mất
+  {num(jp("find-1000","wall_s"),fmt_s)} vì 1000 key ngẫu nhiên chạm gần hết row group.</p>
 </section>
 {pending_note}
 
@@ -250,7 +252,9 @@ footer {{ color: var(--muted); font-size: 13px; border-top: 1px solid var(--line
     chọn archive của ngày, <code>REFERENCE</code> tìm bản ghi trong đó.</li>
     <li>Mỗi ngày khoảng 10 triệu dòng, ghi một lần rồi chỉ đọc.</li>
     <li>Pod tối đa 4 CPU / 4 GiB cho cả dump lẫn tra cứu.</li>
-    <li>Thứ tự ưu tiên: <b>RAM thấp</b> &gt; <b>dung lượng thấp</b> &gt; <b>thời gian thấp</b>.</li>
+    <li>Thứ tự ưu tiên: <b>thời gian thấp</b> ≈ <b>dung lượng thấp</b> &gt; <b>RAM</b>. RAM chỉ cần không tăng
+    tuyến tính theo lượng dữ liệu; cấp worker 4, 8 hay 10 GB không thành vấn đề.</li>
+    <li>Không dịch vụ nào được dùng Oracle JDK; chạy trên OpenJDK.</li>
     <li>Chỉ dùng định dạng và thư viện chuẩn, không tự chế định dạng hay index riêng.</li>
   </ul>
 </section>
@@ -265,7 +269,34 @@ footer {{ color: var(--muted); font-size: 13px; border-top: 1px solid var(--line
   <p>Ô tô xanh là tốt nhất trong hàng. Thời gian là trung vị, RAM là đỉnh (RSS của cả tiến trình), tra cứu có 1 lần làm
   nóng rồi đo 3 lần. Mỗi bản ghi trả về được so từng byte với bản ghi đọc thẳng từ Oracle.</p>
   {"".join(f"<h3>{label}</h3>{table_dataset(ds)}" for ds, label in DATASETS)}
-  <p class="note">Tra cứu bản Java gồm khoảng 0,4 s khởi động JVM ở mỗi lần đo; trong service chạy lâu, phần này không có.</p>
+  <p class="note">Tra cứu bản Java gồm khoảng 0,4 s khởi động JVM ở mỗi lần đo; trong service chạy lâu, phần này không có.
+  Cột java-parquet-duckdb của dữ liệu lặp là lần đo lại ngày 16/11 trên file dump mới. Lần đo trước cho tra 1 key ở 2M
+  là 2,05 s và key không tồn tại 1,93 s, không lặp lại được; lần này 1,70 s và 1,58 s, bằng mức ở 1M.</p>
+</section>
+
+<section>
+  <h2>Tra 1 key trên Parquet: thời gian đi đâu</h2>
+  <p>Đo lại ngày 16/11 trên file dump mới của dữ liệu lặp, cùng cấu hình java-parquet-duckdb, mỗi số là 3 lần đo.
+  File đã sắp theo <code>REFERENCE</code> (dump đọc Oracle bằng <code>ORDER BY TRUNC(CREATED_AT), REFERENCE</code>),
+  nên min/max của từng row group không chồng nhau và DuckDB bỏ qua mọi row group không chứa key.</p>
+  <div class="scroll"><table><thead><tr><th>Bước</th><th class="num">1M dòng<small>48 row group</small></th>
+  <th class="num">2M dòng<small>96 row group</small></th><th>Tăng theo kích thước file?</th></tr></thead><tbody>
+  <tr><th scope=row>Khởi động JVM, nạp jar</th><td class="num">~0,4 s</td><td class="num">~0,4 s</td><td>Không</td></tr>
+  <tr><th scope=row>Mở DuckDB<small>giải nén thư viện native 64 MB từ jar rồi nạp, mỗi tiến trình một lần</small></th>
+  <td class="num">~1,0 s</td><td class="num">~1,0 s</td><td>Không</td></tr>
+  <tr><th scope=row>Truy vấn <code>SELECT *</code> theo key<small>đọc ~117 MB: nguyên 1 row group, đủ 73 cột</small></th>
+  <td class="num">~210 ms</td><td class="num">~220 ms</td><td>Gần như không</td></tr>
+  <tr><th scope=row>↳ trong đó đọc footer<small>metadata của mọi row group</small></th>
+  <td class="num">28 ms</td><td class="num">55 ms</td><td>Có, tuyến tính nhưng nhỏ (~270 ms ở 10M)</td></tr>
+  <tr><th scope=row>Row group phải quét</th><td class="num">1 / 48</td><td class="num">1 / 96</td><td>Không</td></tr>
+  <tr><th scope=row>Tổng, chạy bằng CLI của bench</th><td class="num">1,69–1,75 s</td><td class="num">1,64–1,75 s</td><td>Không</td></tr>
+  </tbody></table></div>
+  <ul>
+    <li>Tra 1 key không chậm đi khi file to ra. Trong service chạy lâu, mỗi lần tra còn ~0,2–0,5 s, chủ yếu do phải đọc
+    và giải nén nguyên một row group 128 MB; RocksDB chỉ đọc 1 block vài KB (go-rocksdb ~15 ms gồm cả khởi động tiến trình).</li>
+    <li>Tra 1000 key thì tăng theo kích thước file: 1000 key ngẫu nhiên rơi vào gần như mọi row group, nên đọc gần hết file.</li>
+    <li>Row group nhỏ hơn giảm số byte mỗi lần tra nhưng footer to ra; chưa đo.</li>
+  </ul>
 </section>
 
 <section>
@@ -281,14 +312,14 @@ footer {{ color: var(--muted); font-size: 13px; border-top: 1px solid var(--line
 <section>
   <h2>Vì sao chọn RocksDB</h2>
   <ul>
-    <li><b>RAM khi dump</b> của RocksDB thấp hơn Parquet (bảng trên), vì ghi tuần tự từng block đã sắp xếp; Parquet giữ
-    cả row group 128 MB của 73 cột trong RAM trước khi ghi.</li>
-    <li><b>Tra cứu</b> là truy vấn duy nhất của hệ thống. RocksDB có index và bloom filter theo key nên chỉ đọc đúng
-    block chứa key; Parquet là định dạng theo cột, 1000 key ngẫu nhiên rơi vào gần như mọi row group nên phải giải nén
-    gần hết file, và thời gian tra tăng gấp đôi khi file gấp đôi.</li>
+    <li><b>Thời gian tra</b>: tra cứu là truy vấn duy nhất của hệ thống. RocksDB có index và bloom filter theo key nên
+    chỉ đọc đúng block chứa key (vài KB); Parquet là định dạng theo cột, dù đã sắp theo key vẫn phải đọc nguyên một row
+    group ~117 MB cho mỗi key. Cả hai đều không chậm đi khi tra 1 key trên file to hơn.</li>
+    <li><b>Dung lượng</b> là điểm Parquet hơn, khoảng 11% (≈ 2,5–3 TB mỗi năm ở 10M dòng/ngày). Với ưu tiên thời gian
+    ≈ dung lượng, đây là cái giá đổi lấy tra nhanh hơn nhiều lần.</li>
+    <li><b>RAM</b> của cả 3 phương án không tăng tuyến tính theo dữ liệu: khi tra 1 key, RAM ở 1M và 2M như nhau;
+    khi dump, RAM tăng rất ít (bảng trên). RocksDB dùng ít RAM hơn Parquet.</li>
     <li><b>Toàn vẹn</b>: mỗi block của RocksDB có checksum, được kiểm ở mỗi lần đọc; hỏng thì báo lỗi.</li>
-    <li><b>Dung lượng</b> là điểm Parquet hơn, khoảng 11% (≈ 2,5–3 TB mỗi năm ở 10M dòng/ngày), không bù được RAM và
-    tốc độ tra.</li>
   </ul>
   <h3>Java hay Go</h3>
   <ul>
@@ -296,8 +327,31 @@ footer {{ color: var(--muted); font-size: 13px; border-top: 1px solid var(--line
     <li>Java dùng ojdbc, driver chính thức của Oracle, không cần cài thêm gì.</li>
     <li>Go dùng godror, bọc thư viện C chính thức của Oracle (ODPI-C); cần Oracle Instant Client trong image và cgo.
     godror cấp buffer theo độ rộng khai báo của cột, nên lô fetch phải tính theo schema thật
-    (RAM ≈ số dòng mỗi lô × tổng độ rộng khai báo của các cột).</li>
+    (RAM ≈ số dòng mỗi lô × tổng độ rộng khai báo của các cột). Có thể thay bằng go-ora (Go thuần, MIT, không cần
+    Instant Client), bench đã hỗ trợ qua <code>ORACLE_DRIVER=go-ora</code>.</li>
   </ul>
+</section>
+
+<section>
+  <h2>License</h2>
+  <p><b>Không phương án nào dùng Oracle JDK.</b> Bench build và chạy trên Eclipse Temurin 25 và OpenJDK 21, đều là
+  OpenJDK (GPLv2 + Classpath Exception), nên chạy được trên OpenJDK của MB. Phí Java SE Subscription của Oracle chỉ áp
+  dụng khi dùng bản binary Oracle JDK.</p>
+  <p>Thư viện của Oracle chỉ dùng ở bước dump, để đọc dữ liệu nguồn từ Oracle DB, và cả 3 phương án đều dùng (không riêng
+  RocksDB). Bản thân RocksDB là của Meta, không liên quan Oracle.</p>
+  <div class="scroll"><table class="plain"><thead><tr><th>Thành phần</th><th>Dùng ở</th><th>License</th><th>Tốn phí cho doanh nghiệp?</th></tr></thead><tbody>
+  <tr><th scope=row><code>ojdbc11</code> 23.26</th><td>Dump, 2 phương án Java</td><td>Oracle Free Distribution, Hosting, and Use Terms</td><td>Không</td></tr>
+  <tr><th scope=row>Oracle Instant Client 23</th><td>Dump, go-rocksdb (qua godror)</td><td>Oracle Free Distribution, Hosting, and Use Terms</td><td>Không</td></tr>
+  <tr><th scope=row><code>godror</code> + ODPI-C</th><td>Dump, go-rocksdb</td><td>Apache 2.0 / UPL</td><td>Không</td></tr>
+  <tr><th scope=row><code>go-ora</code> (tuỳ chọn)</th><td>Dump, go-rocksdb</td><td>MIT, không cần thư viện native của Oracle</td><td>Không</td></tr>
+  <tr><th scope=row>RocksDB, <code>rocksdbjni</code>, <code>grocksdb</code></th><td>Lưu và tra</td><td>Apache 2.0 (rocksdbjni: Apache 2.0 hoặc GPLv2)</td><td>Không</td></tr>
+  <tr><th scope=row>parquet-java, DuckDB</th><td>Lưu và tra</td><td>Apache 2.0 / MIT</td><td>Không</td></tr>
+  </tbody></table></div>
+  <p class="note">Theo nguyên văn license đóng gói trong <code>ojdbc11.jar</code> và <code>instantclient_23_3/BASIC_LICENSE</code>:
+  được dùng cho "your business operations", chạy production, hosting/cloud, phân phối lại bản không sửa; điều kiện là giữ
+  file license khi phân phối, không thu phí riêng cho thư viện, không dịch ngược, tuân thủ luật kiểm soát xuất khẩu. Image
+  <code>gvenzl/oracle-free</code> chỉ dùng để giả lập DB nguồn trong bench. Đây là kết luận từ văn bản license, không phải
+  ý kiến pháp lý; cần pháp chế MB xác nhận.</p>
 </section>
 
 <section>

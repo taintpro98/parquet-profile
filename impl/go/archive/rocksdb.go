@@ -26,7 +26,7 @@ import (
 // Đọc: mở DB chỉ đọc, MultiGet. Index và bloom filter nằm trong block cache có giới hạn.
 //
 // Settings: ROCKSDB_BLOCK_BYTES (65536), ROCKSDB_CACHE_BYTES (64 MiB), ROCKSDB_INDEX (partitioned | binary),
-// ROCKSDB_METADATA_BYTES (4096).
+// ROCKSDB_METADATA_BYTES (4096), ROCKSDB_ZSTD_DICT_BYTES / _TRAIN_BYTES / _BUFFER_BYTES / _LEVEL (xem setZstdOptions).
 type Rocksdb struct{}
 
 func init() { Register("rocksdb", func() common.Archive { return Rocksdb{} }) }
@@ -56,11 +56,41 @@ func rocksdbOptions() (*grocksdb.Options, func()) {
 	opts := grocksdb.NewDefaultOptions()
 	opts.SetCompression(grocksdb.ZSTDCompression)
 	opts.SetBottommostCompression(grocksdb.ZSTDCompression)
+	setZstdOptions(opts)
 	opts.SetBlockBasedTableFactory(table)
 	return opts, func() {
 		opts.Destroy()
 		table.Destroy()
 		cache.Destroy()
+	}
+}
+
+// zstdDefaultLevel là kDefaultCompressionLevel của RocksDB: để ZSTD tự chọn mức mặc định (3).
+const zstdDefaultLevel = 32767
+
+// setZstdOptions bật ZSTD dictionary và/hoặc đổi mức nén, chỉ khi có biến môi trường; không đặt gì thì
+// giữ nguyên mặc định cũ. Đặt cho cả compression_opts lẫn bottommost_compression_opts vì SstFileWriter
+// dùng bottommost khi có. Dictionary là tính năng chuẩn của RocksDB, lưu trong meta block của file SST.
+//
+// ROCKSDB_ZSTD_DICT_BYTES (0 = tắt): kích thước từ điển. ROCKSDB_ZSTD_TRAIN_BYTES (100 × dict): lượng mẫu
+// để train. ROCKSDB_ZSTD_BUFFER_BYTES (64 MiB): giới hạn dữ liệu giữ trong RAM để lấy mẫu (0 của RocksDB là
+// không giới hạn, sẽ giữ cả file SST trong RAM). ROCKSDB_ZSTD_LEVEL (mặc định của ZSTD).
+func setZstdOptions(opts *grocksdb.Options) {
+	dict := int(common.Int("ROCKSDB_ZSTD_DICT_BYTES", 0))
+	level := int(common.Int("ROCKSDB_ZSTD_LEVEL", zstdDefaultLevel))
+	if dict == 0 && level == zstdDefaultLevel {
+		return
+	}
+	co := grocksdb.NewCompressionOptions(-14, level, 0, dict)
+	opts.SetCompressionOptions(co)
+	opts.SetBottommostCompressionOptions(co, true)
+	if dict > 0 {
+		train := int(common.Int("ROCKSDB_ZSTD_TRAIN_BYTES", int64(dict)*100))
+		buffer := uint64(common.Int("ROCKSDB_ZSTD_BUFFER_BYTES", 64<<20))
+		opts.SetCompressionOptionsZstdMaxTrainBytes(train)
+		opts.SetBottommostCompressionOptionsZstdMaxTrainBytes(train, true)
+		opts.SetCompressionOptionsMaxDictBufferBytes(buffer)
+		opts.SetBottommostCompressionOptionsMaxDictBufferBytes(buffer, true)
 	}
 }
 

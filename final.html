@@ -80,9 +80,9 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
   <p><b>go-rocksdb</b> là đối trọng: cùng định dạng, file giống hệt; dump 329 s / RAM
   182 MB, tra 1000 key 0,40 s. Cần Oracle Instant
   Client và cgo.</p>
-  <p><b>java-parquet-duckdb</b> nén tốt hơn 11%, nhưng dump cần RAM
-  1,16 GB và tra 1000 key mất 53,4 s, tăng theo
-  kích thước file.</p>
+  <p><b>java-parquet-duckdb</b> nén tốt hơn 11%. Tra 1 key không chậm đi khi
+  file to ra, nhưng mỗi key phải đọc nguyên một row group (~117 MB) nên chậm hơn RocksDB nhiều lần; tra 1000 key mất
+  53,4 s vì 1000 key ngẫu nhiên chạm gần hết row group.</p>
 </section>
 
 
@@ -93,7 +93,9 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
     chọn archive của ngày, <code>REFERENCE</code> tìm bản ghi trong đó.</li>
     <li>Mỗi ngày khoảng 10 triệu dòng, ghi một lần rồi chỉ đọc.</li>
     <li>Pod tối đa 4 CPU / 4 GiB cho cả dump lẫn tra cứu.</li>
-    <li>Thứ tự ưu tiên: <b>RAM thấp</b> &gt; <b>dung lượng thấp</b> &gt; <b>thời gian thấp</b>.</li>
+    <li>Thứ tự ưu tiên: <b>thời gian thấp</b> ≈ <b>dung lượng thấp</b> &gt; <b>RAM</b>. RAM chỉ cần không tăng
+    tuyến tính theo lượng dữ liệu; cấp worker 4, 8 hay 10 GB không thành vấn đề.</li>
+    <li>Không dịch vụ nào được dùng Oracle JDK; chạy trên OpenJDK.</li>
     <li>Chỉ dùng định dạng và thư viện chuẩn, không tự chế định dạng hay index riêng.</li>
   </ul>
 </section>
@@ -107,15 +109,42 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
   <h2>Kết quả đo</h2>
   <p>Ô tô xanh là tốt nhất trong hàng. Thời gian là trung vị, RAM là đỉnh (RSS của cả tiến trình), tra cứu có 1 lần làm
   nóng rồi đo 3 lần. Mỗi bản ghi trả về được so từng byte với bản ghi đọc thẳng từ Oracle.</p>
-  <h3>Dữ liệu ngẫu nhiên</h3><div class="scroll"><table><thead><tr><th>Chỉ số</th><th class="num">java-rocksdb<small>Đề xuất</small></th><th class="num">go-rocksdb<small>Đối trọng</small></th><th class="num">java-parquet-duckdb<small>Để so</small></th></tr></thead><tbody><tr class="group"><th colspan="4">Một ngày 1M dòng</th></tr><tr><th scope=row>Dump · thời gian</th><td class="num">531 s</td><td class="num best">329 s</td><td class="num">393 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">644 MB</td><td class="num best">182 MB</td><td class="num">1,16 GB</td></tr><tr><th scope=row>Dung lượng file</th><td class="num">7,4 GB</td><td class="num">7,4 GB</td><td class="num best">6,6 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num">0,45 s</td><td class="num best">0,02 s</td><td class="num">1,76 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">0,91 s</td><td class="num best">0,40 s</td><td class="num">53,4 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num">278 MB</td><td class="num best">159 MB</td><td class="num">2,36 GB</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class="num">0,43 s</td><td class="num best">0,01 s</td><td class="num">1,61 s</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr><tr class="group"><th colspan="4">Một ngày 2M dòng</th></tr><tr><th scope=row>Dump · thời gian</th><td class="num">1.053 s</td><td class="num best">672 s</td><td class="num">805 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">690 MB</td><td class="num best">202 MB</td><td class="num">1,18 GB</td></tr><tr><th scope=row>Dung lượng file</th><td class="num">14,8 GB</td><td class="num">14,8 GB</td><td class="num best">13,2 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num">0,53 s</td><td class="num best">0,02 s</td><td class="num">2,01 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">1,31 s</td><td class="num best">0,56 s</td><td class="num">107 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num">278 MB</td><td class="num best">161 MB</td><td class="num">1,74 GB</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class="num">0,49 s</td><td class="num best">0,01 s</td><td class="num">1,82 s</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr><tr class="group"><th colspan="4">Một ngày 3M dòng · không đo: không đủ ổ đĩa</th></tr></tbody></table></div><h3>Dữ liệu lặp (20% cột là trạng thái)</h3><div class="scroll"><table><thead><tr><th>Chỉ số</th><th class="num">java-rocksdb<small>Đề xuất</small></th><th class="num">go-rocksdb<small>Đối trọng</small></th><th class="num">java-parquet-duckdb<small>Để so</small></th></tr></thead><tbody><tr class="group"><th colspan="4">Một ngày 1M dòng</th></tr><tr><th scope=row>Dump · thời gian</th><td class="num">424 s</td><td class="num best">267 s</td><td class="num">314 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">634 MB</td><td class="num best">166 MB</td><td class="num">1,04 GB</td></tr><tr><th scope=row>Dung lượng file</th><td class="num">5,9 GB</td><td class="num">5,9 GB</td><td class="num best">5,3 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num">0,45 s</td><td class="num best">0,02 s</td><td class="num">1,67 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">0,88 s</td><td class="num best">0,35 s</td><td class="num">42,6 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num">268 MB</td><td class="num best">160 MB</td><td class="num">2,51 GB</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class="num">0,42 s</td><td class="num best">0,01 s</td><td class="num">1,52 s</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr><tr class="group"><th colspan="4">Một ngày 2M dòng</th></tr><tr><th scope=row>Dump · thời gian</th><td class="num">855 s</td><td class="num best">545 s</td><td class="num">639 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">661 MB</td><td class="num best">199 MB</td><td class="num">1,06 GB</td></tr><tr><th scope=row>Dung lượng file</th><td class="num">11,9 GB</td><td class="num">11,9 GB</td><td class="num best">10,6 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num">0,48 s</td><td class="num best">0,02 s</td><td class="num">2,05 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">1,00 s</td><td class="num best">0,45 s</td><td class="num">85 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num">271 MB</td><td class="num best">160 MB</td><td class="num">1,81 GB</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class="num">0,48 s</td><td class="num best">0,01 s</td><td class="num">1,93 s</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr><tr class="group"><th colspan="4">Một ngày 3M dòng · không đo: không đủ ổ đĩa</th></tr></tbody></table></div>
-  <p class="note">Tra cứu bản Java gồm khoảng 0,4 s khởi động JVM ở mỗi lần đo; trong service chạy lâu, phần này không có.</p>
+  <h3>Dữ liệu ngẫu nhiên</h3><div class="scroll"><table><thead><tr><th>Chỉ số</th><th class="num">java-rocksdb<small>Đề xuất</small></th><th class="num">go-rocksdb<small>Đối trọng</small></th><th class="num">java-parquet-duckdb<small>Để so</small></th></tr></thead><tbody><tr class="group"><th colspan="4">Một ngày 1M dòng</th></tr><tr><th scope=row>Dump · thời gian</th><td class="num">531 s</td><td class="num best">329 s</td><td class="num">393 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">644 MB</td><td class="num best">182 MB</td><td class="num">1,16 GB</td></tr><tr><th scope=row>Dung lượng file</th><td class="num">7,4 GB</td><td class="num">7,4 GB</td><td class="num best">6,6 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num">0,45 s</td><td class="num best">0,02 s</td><td class="num">1,76 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">0,91 s</td><td class="num best">0,40 s</td><td class="num">53,4 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num">278 MB</td><td class="num best">159 MB</td><td class="num">2,36 GB</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class="num">0,43 s</td><td class="num best">0,01 s</td><td class="num">1,61 s</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr><tr class="group"><th colspan="4">Một ngày 2M dòng</th></tr><tr><th scope=row>Dump · thời gian</th><td class="num">1.053 s</td><td class="num best">672 s</td><td class="num">805 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">690 MB</td><td class="num best">202 MB</td><td class="num">1,18 GB</td></tr><tr><th scope=row>Dung lượng file</th><td class="num">14,8 GB</td><td class="num">14,8 GB</td><td class="num best">13,2 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num">0,53 s</td><td class="num best">0,02 s</td><td class="num">2,01 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">1,31 s</td><td class="num best">0,56 s</td><td class="num">107 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num">278 MB</td><td class="num best">161 MB</td><td class="num">1,74 GB</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class="num">0,49 s</td><td class="num best">0,01 s</td><td class="num">1,82 s</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr><tr class="group"><th colspan="4">Một ngày 3M dòng · không đo: không đủ ổ đĩa</th></tr></tbody></table></div><h3>Dữ liệu lặp (20% cột là trạng thái)</h3><div class="scroll"><table><thead><tr><th>Chỉ số</th><th class="num">java-rocksdb<small>Đề xuất</small></th><th class="num">go-rocksdb<small>Đối trọng</small></th><th class="num">java-parquet-duckdb<small>Để so</small></th></tr></thead><tbody><tr class="group"><th colspan="4">Một ngày 1M dòng</th></tr><tr><th scope=row>Dump · thời gian</th><td class="num">424 s</td><td class="num best">267 s</td><td class="num">336 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">634 MB</td><td class="num best">166 MB</td><td class="num">1,01 GB</td></tr><tr><th scope=row>Dung lượng file</th><td class="num">5,9 GB</td><td class="num">5,9 GB</td><td class="num best">5,3 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num">0,45 s</td><td class="num best">0,02 s</td><td class="num">1,76 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">0,88 s</td><td class="num best">0,35 s</td><td class="num">43,0 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num">268 MB</td><td class="num best">160 MB</td><td class="num">2,53 GB</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class="num">0,42 s</td><td class="num best">0,01 s</td><td class="num">1,55 s</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr><tr class="group"><th colspan="4">Một ngày 2M dòng</th></tr><tr><th scope=row>Dump · thời gian</th><td class="num">855 s</td><td class="num best">545 s</td><td class="num">645 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">661 MB</td><td class="num best">199 MB</td><td class="num">1,06 GB</td></tr><tr><th scope=row>Dung lượng file</th><td class="num">11,9 GB</td><td class="num">11,9 GB</td><td class="num best">10,6 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num">0,48 s</td><td class="num best">0,02 s</td><td class="num">1,70 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">1,00 s</td><td class="num best">0,45 s</td><td class="num">85 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num">271 MB</td><td class="num best">160 MB</td><td class="num">2,67 GB</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class="num">0,48 s</td><td class="num best">0,01 s</td><td class="num">1,58 s</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr><tr class="group"><th colspan="4">Một ngày 3M dòng · không đo: không đủ ổ đĩa</th></tr></tbody></table></div>
+  <p class="note">Tra cứu bản Java gồm khoảng 0,4 s khởi động JVM ở mỗi lần đo; trong service chạy lâu, phần này không có.
+  Cột java-parquet-duckdb của dữ liệu lặp là lần đo lại ngày 16/11 trên file dump mới. Lần đo trước cho tra 1 key ở 2M
+  là 2,05 s và key không tồn tại 1,93 s, không lặp lại được; lần này 1,70 s và 1,58 s, bằng mức ở 1M.</p>
+</section>
+
+<section>
+  <h2>Tra 1 key trên Parquet: thời gian đi đâu</h2>
+  <p>Đo lại ngày 16/11 trên file dump mới của dữ liệu lặp, cùng cấu hình java-parquet-duckdb, mỗi số là 3 lần đo.
+  File đã sắp theo <code>REFERENCE</code> (dump đọc Oracle bằng <code>ORDER BY TRUNC(CREATED_AT), REFERENCE</code>),
+  nên min/max của từng row group không chồng nhau và DuckDB bỏ qua mọi row group không chứa key.</p>
+  <div class="scroll"><table><thead><tr><th>Bước</th><th class="num">1M dòng<small>48 row group</small></th>
+  <th class="num">2M dòng<small>96 row group</small></th><th>Tăng theo kích thước file?</th></tr></thead><tbody>
+  <tr><th scope=row>Khởi động JVM, nạp jar</th><td class="num">~0,4 s</td><td class="num">~0,4 s</td><td>Không</td></tr>
+  <tr><th scope=row>Mở DuckDB<small>giải nén thư viện native 64 MB từ jar rồi nạp, mỗi tiến trình một lần</small></th>
+  <td class="num">~1,0 s</td><td class="num">~1,0 s</td><td>Không</td></tr>
+  <tr><th scope=row>Truy vấn <code>SELECT *</code> theo key<small>đọc ~117 MB: nguyên 1 row group, đủ 73 cột</small></th>
+  <td class="num">~210 ms</td><td class="num">~220 ms</td><td>Gần như không</td></tr>
+  <tr><th scope=row>↳ trong đó đọc footer<small>metadata của mọi row group</small></th>
+  <td class="num">28 ms</td><td class="num">55 ms</td><td>Có, tuyến tính nhưng nhỏ (~270 ms ở 10M)</td></tr>
+  <tr><th scope=row>Row group phải quét</th><td class="num">1 / 48</td><td class="num">1 / 96</td><td>Không</td></tr>
+  <tr><th scope=row>Tổng, chạy bằng CLI của bench</th><td class="num">1,69–1,75 s</td><td class="num">1,64–1,75 s</td><td>Không</td></tr>
+  </tbody></table></div>
+  <ul>
+    <li>Tra 1 key không chậm đi khi file to ra. Trong service chạy lâu, mỗi lần tra còn ~0,2–0,5 s, chủ yếu do phải đọc
+    và giải nén nguyên một row group 128 MB; RocksDB chỉ đọc 1 block vài KB (go-rocksdb ~15 ms gồm cả khởi động tiến trình).</li>
+    <li>Tra 1000 key thì tăng theo kích thước file: 1000 key ngẫu nhiên rơi vào gần như mọi row group, nên đọc gần hết file.</li>
+    <li>Row group nhỏ hơn giảm số byte mỗi lần tra nhưng footer to ra; chưa đo.</li>
+  </ul>
 </section>
 
 <section>
   <h2>Suy ra một ngày 10M dòng</h2>
   <p>Ngoại suy bằng đường thẳng qua các cỡ đã đo (bình phương tối thiểu). Với thời gian tra của RocksDB, cách này cho
   số cao hơn thực tế vì index chỉ tăng theo logarit.</p>
-  <div class="scroll"><table><thead><tr><th>Chỉ số</th><th class="num">java-rocksdb<small>Đề xuất</small></th><th class="num">go-rocksdb<small>Đối trọng</small></th><th class="num">java-parquet-duckdb<small>Để so</small></th></tr></thead><tbody><tr class="group"><th colspan="4">Dữ liệu ngẫu nhiên</th></tr><tr><th scope=row>Dump · thời gian</th><td class="num">1,5 giờ</td><td class="num best">0,9 giờ</td><td class="num">1,1 giờ</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">1,03 GB</td><td class="num best">362 MB</td><td class="num">1,38 GB</td></tr><tr><th scope=row>Dung lượng / ngày</th><td class="num">74,0 GB</td><td class="num">74,0 GB</td><td class="num best">66,1 GB</td></tr><tr><th scope=row>Dung lượng / năm</th><td class="num">27 TB</td><td class="num">27 TB</td><td class="num best">24 TB</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">4,49 s</td><td class="num best">1,79 s</td><td class="num">535 s</td></tr><tr class="group"><th colspan="4">Dữ liệu lặp (20% cột là trạng thái)</th></tr><tr><th scope=row>Dump · thời gian</th><td class="num">1,2 giờ</td><td class="num best">0,8 giờ</td><td class="num">0,9 giờ</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">877 MB</td><td class="num best">463 MB</td><td class="num">1,22 GB</td></tr><tr><th scope=row>Dung lượng / ngày</th><td class="num">59,5 GB</td><td class="num">59,5 GB</td><td class="num best">52,8 GB</td></tr><tr><th scope=row>Dung lượng / năm</th><td class="num">22 TB</td><td class="num">22 TB</td><td class="num best">19 TB</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">2,02 s</td><td class="num best">1,22 s</td><td class="num">427 s</td></tr></tbody></table></div>
+  <div class="scroll"><table><thead><tr><th>Chỉ số</th><th class="num">java-rocksdb<small>Đề xuất</small></th><th class="num">go-rocksdb<small>Đối trọng</small></th><th class="num">java-parquet-duckdb<small>Để so</small></th></tr></thead><tbody><tr class="group"><th colspan="4">Dữ liệu ngẫu nhiên</th></tr><tr><th scope=row>Dump · thời gian</th><td class="num">1,5 giờ</td><td class="num best">0,9 giờ</td><td class="num">1,1 giờ</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">1,03 GB</td><td class="num best">362 MB</td><td class="num">1,38 GB</td></tr><tr><th scope=row>Dung lượng / ngày</th><td class="num">74,0 GB</td><td class="num">74,0 GB</td><td class="num best">66,1 GB</td></tr><tr><th scope=row>Dung lượng / năm</th><td class="num">27 TB</td><td class="num">27 TB</td><td class="num best">24 TB</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">4,49 s</td><td class="num best">1,79 s</td><td class="num">535 s</td></tr><tr class="group"><th colspan="4">Dữ liệu lặp (20% cột là trạng thái)</th></tr><tr><th scope=row>Dump · thời gian</th><td class="num">1,2 giờ</td><td class="num best">0,8 giờ</td><td class="num">0,9 giờ</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">877 MB</td><td class="num best">463 MB</td><td class="num">1,49 GB</td></tr><tr><th scope=row>Dung lượng / ngày</th><td class="num">59,5 GB</td><td class="num">59,5 GB</td><td class="num best">52,8 GB</td></tr><tr><th scope=row>Dung lượng / năm</th><td class="num">22 TB</td><td class="num">22 TB</td><td class="num best">19 TB</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">2,02 s</td><td class="num best">1,22 s</td><td class="num">425 s</td></tr></tbody></table></div>
   <p class="note">Lần đo trước, bench chạy lại câu SELECT ở mỗi lượt 100k dòng; với godror cách đó làm RAM của Go
   tăng giả (1M dòng: 328 MB so với 179 MB khi đọc bằng một câu SELECT). Lần này cả 3 phương án đều đọc cả ngày bằng
   một câu SELECT.</p>
@@ -124,14 +153,14 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
 <section>
   <h2>Vì sao chọn RocksDB</h2>
   <ul>
-    <li><b>RAM khi dump</b> của RocksDB thấp hơn Parquet (bảng trên), vì ghi tuần tự từng block đã sắp xếp; Parquet giữ
-    cả row group 128 MB của 73 cột trong RAM trước khi ghi.</li>
-    <li><b>Tra cứu</b> là truy vấn duy nhất của hệ thống. RocksDB có index và bloom filter theo key nên chỉ đọc đúng
-    block chứa key; Parquet là định dạng theo cột, 1000 key ngẫu nhiên rơi vào gần như mọi row group nên phải giải nén
-    gần hết file, và thời gian tra tăng gấp đôi khi file gấp đôi.</li>
+    <li><b>Thời gian tra</b>: tra cứu là truy vấn duy nhất của hệ thống. RocksDB có index và bloom filter theo key nên
+    chỉ đọc đúng block chứa key (vài KB); Parquet là định dạng theo cột, dù đã sắp theo key vẫn phải đọc nguyên một row
+    group ~117 MB cho mỗi key. Cả hai đều không chậm đi khi tra 1 key trên file to hơn.</li>
+    <li><b>Dung lượng</b> là điểm Parquet hơn, khoảng 11% (≈ 2,5–3 TB mỗi năm ở 10M dòng/ngày). Với ưu tiên thời gian
+    ≈ dung lượng, đây là cái giá đổi lấy tra nhanh hơn nhiều lần.</li>
+    <li><b>RAM</b> của cả 3 phương án không tăng tuyến tính theo dữ liệu: khi tra 1 key, RAM ở 1M và 2M như nhau;
+    khi dump, RAM tăng rất ít (bảng trên). RocksDB dùng ít RAM hơn Parquet.</li>
     <li><b>Toàn vẹn</b>: mỗi block của RocksDB có checksum, được kiểm ở mỗi lần đọc; hỏng thì báo lỗi.</li>
-    <li><b>Dung lượng</b> là điểm Parquet hơn, khoảng 11% (≈ 2,5–3 TB mỗi năm ở 10M dòng/ngày), không bù được RAM và
-    tốc độ tra.</li>
   </ul>
   <h3>Java hay Go</h3>
   <ul>
@@ -139,8 +168,31 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
     <li>Java dùng ojdbc, driver chính thức của Oracle, không cần cài thêm gì.</li>
     <li>Go dùng godror, bọc thư viện C chính thức của Oracle (ODPI-C); cần Oracle Instant Client trong image và cgo.
     godror cấp buffer theo độ rộng khai báo của cột, nên lô fetch phải tính theo schema thật
-    (RAM ≈ số dòng mỗi lô × tổng độ rộng khai báo của các cột).</li>
+    (RAM ≈ số dòng mỗi lô × tổng độ rộng khai báo của các cột). Có thể thay bằng go-ora (Go thuần, MIT, không cần
+    Instant Client), bench đã hỗ trợ qua <code>ORACLE_DRIVER=go-ora</code>.</li>
   </ul>
+</section>
+
+<section>
+  <h2>License</h2>
+  <p><b>Không phương án nào dùng Oracle JDK.</b> Bench build và chạy trên Eclipse Temurin 25 và OpenJDK 21, đều là
+  OpenJDK (GPLv2 + Classpath Exception), nên chạy được trên OpenJDK của MB. Phí Java SE Subscription của Oracle chỉ áp
+  dụng khi dùng bản binary Oracle JDK.</p>
+  <p>Thư viện của Oracle chỉ dùng ở bước dump, để đọc dữ liệu nguồn từ Oracle DB, và cả 3 phương án đều dùng (không riêng
+  RocksDB). Bản thân RocksDB là của Meta, không liên quan Oracle.</p>
+  <div class="scroll"><table class="plain"><thead><tr><th>Thành phần</th><th>Dùng ở</th><th>License</th><th>Tốn phí cho doanh nghiệp?</th></tr></thead><tbody>
+  <tr><th scope=row><code>ojdbc11</code> 23.26</th><td>Dump, 2 phương án Java</td><td>Oracle Free Distribution, Hosting, and Use Terms</td><td>Không</td></tr>
+  <tr><th scope=row>Oracle Instant Client 23</th><td>Dump, go-rocksdb (qua godror)</td><td>Oracle Free Distribution, Hosting, and Use Terms</td><td>Không</td></tr>
+  <tr><th scope=row><code>godror</code> + ODPI-C</th><td>Dump, go-rocksdb</td><td>Apache 2.0 / UPL</td><td>Không</td></tr>
+  <tr><th scope=row><code>go-ora</code> (tuỳ chọn)</th><td>Dump, go-rocksdb</td><td>MIT, không cần thư viện native của Oracle</td><td>Không</td></tr>
+  <tr><th scope=row>RocksDB, <code>rocksdbjni</code>, <code>grocksdb</code></th><td>Lưu và tra</td><td>Apache 2.0 (rocksdbjni: Apache 2.0 hoặc GPLv2)</td><td>Không</td></tr>
+  <tr><th scope=row>parquet-java, DuckDB</th><td>Lưu và tra</td><td>Apache 2.0 / MIT</td><td>Không</td></tr>
+  </tbody></table></div>
+  <p class="note">Theo nguyên văn license đóng gói trong <code>ojdbc11.jar</code> và <code>instantclient_23_3/BASIC_LICENSE</code>:
+  được dùng cho "your business operations", chạy production, hosting/cloud, phân phối lại bản không sửa; điều kiện là giữ
+  file license khi phân phối, không thu phí riêng cho thư viện, không dịch ngược, tuân thủ luật kiểm soát xuất khẩu. Image
+  <code>gvenzl/oracle-free</code> chỉ dùng để giả lập DB nguồn trong bench. Đây là kết luận từ văn bản license, không phải
+  ý kiến pháp lý; cần pháp chế MB xác nhận.</p>
 </section>
 
 <section>
