@@ -66,7 +66,7 @@ impl/java/src/main/java/com/mbbank/archive/
 impl/go/
   common/      Archive (interface), Oracle, dump/find theo ngày, sample, JSONL
   archive/     mỗi phương án đúng 1 file, tự đăng ký trong init()
-bench/         bench.py (runner), final_html.py (mẫu final.html), final_report.py (mẫu final-report.html, không dùng), report_html.py (mẫu report.html cũ, không dùng)
+bench/         bench.py (runner), final_html.py (mẫu final.html), upgrade_html.py (mẫu upgrade.html)
 seed/          seed.sh, gen/ (bộ sinh dữ liệu Go)
 ```
 

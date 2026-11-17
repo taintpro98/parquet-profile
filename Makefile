@@ -6,7 +6,7 @@
 #   make find N=1000  IMPL=...            tra N key đầu của bộ đã bốc, so từng cột với Oracle
 #   make find-unknown IMPL=...            tra 1 key không tồn tại, phải trả rỗng
 #   make bench        IMPL=...            dump + find N=1 + find N=1000 + find-unknown
-#   make summary                          vẽ report.html ở thư mục gốc từ mọi kết quả trong results/
+#   make summary                          vẽ final.html và upgrade.html ở thư mục gốc từ results/
 #   make list                             liệt kê phương án
 #   make seed-clean [YES=1]               xoá Oracle và archive (giữ results/)
 #   make db-down                          tắt Oracle

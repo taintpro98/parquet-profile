@@ -2,7 +2,7 @@
 (ORACLE_REPEAT_SINGLE=true, nhãn `single`), ở 1M / 2M / 3M dòng. Thiếu số thì ghi 'đang đo'.
 
 Chạy qua `make summary` (bench.py summary) hoặc thẳng `python3 bench/final_html.py`.
-final-report.html (bench/final_report.py) là bản trước, giữ nguyên.
+final-report.html là bản trước, giữ nguyên.
 """
 import json
 from pathlib import Path
