@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.api.WriteSupport;
@@ -37,7 +38,8 @@ import org.apache.parquet.schema.Types;
  *
  * <p>Settings: PARQUET_COMPRESSION (ZSTD), PARQUET_ROW_GROUP_BYTES (128 MiB, the parquet-java
  * default), PARQUET_ROW_GROUP_ROWS (no limit unless set),
- * DUCKDB_THREADS (4), DUCKDB_EXTERNAL_FILE_CACHE (false). Dictionary encoding is on by default
+ * DUCKDB_THREADS (4), DUCKDB_EXTERNAL_FILE_CACHE (false), DUCKDB_MEMORY_LIMIT (mặc định của DuckDB),
+ * PARQUET_ZSTD_LEVEL (3), PARQUET_DICTIONARY (true), PARQUET_DICT_PAGE_BYTES (1 MiB), PARQUET_PAGE_BYTES (1 MiB). Dictionary encoding is on by default
  * (parquet-java: 1 MB dictionary per column, then PLAIN).
  */
 public final class ParquetDuckdb implements Archive {
@@ -62,7 +64,13 @@ public final class ParquetDuckdb implements Archive {
         long count = 0;
         // Row group theo mặc định của parquet-java: 128 MB tính theo byte, không giới hạn số dòng.
         // PARQUET_ROW_GROUP_ROWS / PARQUET_ROW_GROUP_BYTES chỉ để thử cấu hình khác (và cho test).
+        Configuration conf = new Configuration(false);
+        conf.setInt("parquet.compression.codec.zstd.level", Settings.integer("PARQUET_ZSTD_LEVEL", 3));
         Builder builder = new Builder(out, schema)
+                .withConf(conf)
+                .withDictionaryEncoding(Settings.flag("PARQUET_DICTIONARY", true))
+                .withDictionaryPageSize(Settings.integer("PARQUET_DICT_PAGE_BYTES", ParquetProperties.DEFAULT_DICTIONARY_PAGE_SIZE))
+                .withPageSize(Settings.integer("PARQUET_PAGE_BYTES", ParquetProperties.DEFAULT_PAGE_SIZE))
                 .withCompressionCodec(CompressionCodecName.fromConf(Settings.string("PARQUET_COMPRESSION", "ZSTD")))
                 .withRowGroupSize(Settings.number("PARQUET_ROW_GROUP_BYTES", ParquetWriter.DEFAULT_BLOCK_SIZE))
                 .withWriteMode(ParquetFileWriter.Mode.OVERWRITE);
@@ -178,6 +186,10 @@ public final class ParquetDuckdb implements Archive {
                 statement.execute("SET threads = " + Settings.integer("DUCKDB_THREADS", 4));
                 statement.execute("SET enable_external_file_cache = "
                         + Settings.flag("DUCKDB_EXTERNAL_FILE_CACHE", false));
+                String memoryLimit = Settings.string("DUCKDB_MEMORY_LIMIT", "");
+                if (!memoryLimit.isEmpty()) {
+                    statement.execute("SET memory_limit = '" + memoryLimit.replace("'", "") + "'");
+                }
             }
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
                 statement.setString(1, archive.toString());

@@ -67,72 +67,109 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
 <body>
 <main>
 <header>
-  <span class="eyebrow">ColdBoy · cập nhật sau báo cáo final · 16/11/2026</span>
-  <h1>Ba phương án ở cấu hình tốt nhất hiện có</h1>
-  <p class="lead">Sau báo cáo final, hai phương án RocksDB bật thêm ZSTD dictionary của RocksDB để nén tốt hơn.
-  java-parquet-duckdb giữ cấu hình. Đo trên dữ liệu lặp, một ngày 1M dòng.</p>
+  <span class="eyebrow">ColdBoy · đo lại toàn bộ · 17–18/11/2026</span>
+  <h1>Ba phương án ở cấu hình tốt nhất, đo trong cùng một phiên</h1>
+  <p class="lead">Mọi số trong trang này đến từ một phiên đo duy nhất: cùng máy, cùng dữ liệu (seed cố định
+  <code>20261117</code>, một ngày 1M dòng, dữ liệu lặp), cùng giao thức, cùng lô đọc Oracle 1.000. Mỗi phương án dùng cấu
+  hình tốt nhất tìm được ở bước chọn cấu hình bên dưới.</p>
 </header>
 
 <section class="verdict">
-  <p><b>Java và Go bật dictionary như nhau</b> (đo fair, cùng tham số): file OFF 5,9 GB = 5,9 GB,
-  ON 5,7 GB = 5,7 GB (-4,8%). sst_dump xác nhận cả hai ghi cùng tham số native và có
-  khối dictionary. Nhận định trước đây rằng Java không bật được dictionary là sai.</p>
-  <p><b>Tra cứu gần như không đổi khi bật</b>: 1000 key Java 1,00 s →
-  1,07 s, Go 0,44 s →
-  0,44 s. Cái giá là dump chậm hơn (Java 467 s →
-  497 s, Go 309 s → 337 s).</p>
-  <p><b>Khác biệt Java–Go không nằm ở nén</b> mà ở tốc độ và RAM: Go tra 1000 key nhanh hơn ~2 lần, dump nhanh hơn
-  ~1,5 lần, RAM dump ~3 lần ít hơn.</p>
-  <p><b>Dictionary 64 KB nén thêm được</b>: trên go-rocksdb file 5,4 GB (-8,9%) so với
-  -4,8% của 16 KB, tra không chậm hơn. java-parquet-duckdb không đổi cấu hình: file 5,3 GB, tra
-  1000 key 43,0 s.</p>
+  <p><b>go-rocksdb là phương án tốt nhất</b> theo ưu tiên thời gian ≈ dung lượng &gt; RAM: tra 1 key 0,02 s,
+  1000 key 0,37 s, file 5,4 GB, RAM khi dump 293 MB.</p>
+  <p><b>java-rocksdb</b> ra file như go-rocksdb (5,4 GB, cùng tham số nén, sst_dump xác nhận) nhưng
+  tra 1000 key 0,79 s (2,2 lần so với Go), dump 403 s
+  so với 335 s, RAM dump 605 MB so với 293 MB.</p>
+  <p><b>java-parquet-duckdb</b> có file nhỏ nhất (5,3 GB; go-rocksdb lớn hơn 2,5%) nhưng tra 1000 key 42,8 s (116,6 lần so với Go) và tăng
+  theo kích thước file.</p>
 </section>
 
 <section>
   <h2>So sánh 3 phương án</h2>
-  <p>Ô tô xanh là tốt nhất trong hàng. Thời gian là trung vị, RAM là đỉnh (RSS cả tiến trình), tra cứu có 1 lần làm
-  nóng rồi đo 3 lần. Mỗi bản ghi trả về được so từng byte với Oracle.</p>
-  <div class="scroll"><table><thead><tr><th>Dữ liệu lặp, 1M dòng</th><th class="num">java-rocksdb<small>Bật ZSTD dictionary</small></th><th class="num">go-rocksdb<small>Bật ZSTD dictionary</small></th><th class="num">java-parquet-duckdb<small>Không đổi cấu hình, đo lại</small></th></tr></thead><tbody><tr><th scope=row>Cấu hình</th><td>Block 64 KB, ZSTD mức 3, dictionary 16 KB, train 2 MB, buffer 16 MB (đặt qua parser options native của RocksDB)</td><td>Block 64 KB, ZSTD mức 3, dictionary 16 KB, train 2 MB, buffer 16 MB</td><td>Row group 128 MB, dictionary encoding, ZSTD; đo lại 16/11 trên file dump mới</td></tr><tr><th scope=row>Dung lượng file</th><td class="num">5,7 GB</td><td class="num">5,7 GB</td><td class="num best">5,3 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num">0,52 s</td><td class="num best">0,02 s</td><td class="num">1,76 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">1,07 s</td><td class="num best">0,44 s</td><td class="num">43,0 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num">270 MB</td><td class="num best">159 MB</td><td class="num">2,53 GB</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class="num">0,47 s</td><td class="num best">0,01 s</td><td class="num">1,55 s</td></tr><tr><th scope=row>Dump · thời gian</th><td class="num">497 s</td><td class="num">337 s</td><td class="num best">336 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">668 MB</td><td class="num best">226 MB</td><td class="num">1,01 GB</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr></tbody></table></div>
-  <p class="note">Tra cứu bản Java gồm khoảng 0,4 s khởi động JVM; java-parquet-duckdb thêm khoảng 1 s mở DuckDB
-  (giải nén thư viện native 64 MB). Trong service chạy lâu hai khoản này chỉ trả một lần.</p>
+  <p>Ô tô xanh là tốt nhất trong hàng. Dump 3 lần lấy trung vị; RAM là đỉnh lớn nhất của 3 lần (RSS cả tiến trình);
+  tra cứu có 1 lần làm nóng rồi đo 3 lần. Mỗi bản ghi trả về được so từng byte với Oracle.</p>
+  <div class="scroll"><table><thead><tr><th>Dữ liệu lặp, 1M dòng</th><th class="num">go-rocksdb<small>Winner</small></th><th class="num">java-rocksdb<small>Cùng cấu hình RocksDB</small></th><th class="num">java-parquet-duckdb<small>Cấu hình tốt nhất đã thử</small></th></tr></thead><tbody><tr><th scope=row>Cấu hình</th><td>Block 64 KB, ZSTD mức 3, dictionary 64 KB, train 6,4 MB, buffer 64 MB; index và bloom phân vùng; godror lô 1.000</td><td>Như go-rocksdb (dictionary đặt qua parser options native); ojdbc lô 1.000; -Xmx2g</td><td>Row group 128 MB, ZSTD mức 3, dictionary encoding, dữ liệu sort theo REFERENCE; DuckDB 4 luồng; ojdbc lô 1.000</td></tr><tr><th scope=row>Dung lượng file</th><td class="num">5,4 GB</td><td class="num">5,4 GB</td><td class="num best">5,3 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num best">0,02 s</td><td class="num">0,44 s</td><td class="num">1,54 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num best">0,37 s</td><td class="num">0,79 s</td><td class="num">42,8 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num best">160 MB</td><td class="num">341 MB</td><td class="num">2,26 GB</td></tr><tr><th scope=row>Tra key không tồn tại<small>gần như chỉ còn khởi động</small></th><td class="num best">0,02 s</td><td class="num">0,41 s</td><td class="num">1,46 s</td></tr><tr><th scope=row>Dump · thời gian</th><td class="num">335 s</td><td class="num">403 s</td><td class="num best">334 s</td></tr><tr><th scope=row>Dump · CPU</th><td class="num best">191 s</td><td class="num">244 s</td><td class="num">214 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num best">293 MB</td><td class="num">605 MB</td><td class="num">788 MB</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr><tr><th scope=row>Tham số native trong SST<small>sst_dump --show_properties</small></th><td class=num>level=3<br>dict=64 KB<br>train=6.25 MB<br>buffer=64 MB</td><td class=num>level=3<br>dict=64 KB<br>train=6.25 MB<br>buffer=64 MB</td><td class=num>—</td></tr><tr><th scope=row>File có khối dictionary</th><td class=num>Có</td><td class=num>Có</td><td class=num>—</td></tr></tbody></table></div>
+  <p class="note">Thời gian tra bản Java gồm khoảng 0,4 s khởi động JVM, java-parquet-duckdb thêm khoảng 1 s mở DuckDB
+  (giải nén thư viện native). Trong service chạy lâu các khoản này chỉ trả một lần. Hai bản RocksDB dùng hai bản native
+  khác nhau: rocksdbjni đóng gói 11.8.1, Go dùng librocksdb 11.13.2 (Homebrew).</p>
+</section>
+
+<section>
+  <h2>Vì sao go-rocksdb nhanh hơn java-rocksdb dù cùng file</h2>
+  <ul>
+    <li><b>Phần lõi giống nhau</b>: cùng thư viện C++ RocksDB, cùng định dạng và tham số nén, file ra bằng nhau
+    (5,4 GB); đọc và giải nén block tốn như nhau.</li>
+    <li><b>Tra cứu: chênh lệch chủ yếu là khởi động JVM.</b> Tra key không tồn tại (gần như chỉ còn khởi động và mở DB):
+    Java 0,41 s, Go 0,02 s. Trừ khoản đó, tra 1000 key còn Java
+    0,38 s so với Go 0,35 s (+8,0%): phần tra thật gần như bằng nhau. Chạy thành
+    service thường trực thì Java không còn khoản khởi động.</li>
+    <li><b>Dump: Java chậm hơn 20,4%</b> (403 s so với
+    335 s), CPU 244 s so với 191 s, RAM
+    605 MB so với 293 MB (JVM có heap nền, chuỗi
+    UTF-16, và dữ liệu đi vòng qua <code>String</code> rồi chép qua JNI, trong khi Go đi từ byte ra byte).</li>
+    <li><b>Bước tạo JSON</b> đo riêng, ngoài bộ bench, dữ liệu tổng hợp 70 cột × 300 ký tự, tính cho 1M dòng: Java bản
+    cũ (<code>StringWriter</code> khoá đồng bộ từng ký tự và <code>String.format</code> mỗi cột) 230 s, Java sau khi
+    sửa (<code>StringBuilder</code>, tiền tố cột dựng sẵn) 70,6 s, Go 54 s. Bản Java trong bảng trên đã dùng code sau
+    khi sửa.</li>
+    <li>Phần dump còn lại của Java chưa profile để tách riêng từng khoản (chuyển chuỗi, JNI, GC).</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Chọn cấu hình tốt nhất</h2>
+  <p>Mỗi cấu hình ứng viên dump 1 lần rồi tra, trên cùng dữ liệu. Chọn theo ưu tiên thời gian ≈ dung lượng &gt; RAM; riêng cấu hình nén, dung lượng nặng hơn: chấp nhận thời gian tăng vài %.</p>
+  <h3>go-rocksdb: kích thước dictionary</h3>
+  <div class="scroll"><table><thead><tr><th>go-rocksdb, mỗi cấu hình dump 1 lần</th><th class="num">Không dictionary</th><th class="num">Dictionary 16 KB</th><th class="num">Dictionary 64 KB</th></tr></thead><tbody><tr><th scope=row>File so với không dictionary</th><td class=num>+0,0%</td><td class=num>-4,7%</td><td class=num>-9,1%</td></tr><tr><th scope=row>Dung lượng file</th><td class="num">6,0 GB</td><td class="num">5,7 GB</td><td class="num best">5,4 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num best">0,01 s</td><td class="num">0,02 s</td><td class="num">0,02 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num best">0,33 s</td><td class="num">0,37 s</td><td class="num">0,37 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num best">158 MB</td><td class="num best">158 MB</td><td class="num">159 MB</td></tr><tr><th scope=row>Tra key không tồn tại<small>gần như chỉ còn khởi động</small></th><td class="num best">0,01 s</td><td class="num">0,02 s</td><td class="num">0,02 s</td></tr><tr><th scope=row>Dump · thời gian</th><td class="num best">279 s</td><td class="num">341 s</td><td class="num">334 s</td></tr><tr><th scope=row>Dump · CPU</th><td class="num best">149 s</td><td class="num">189 s</td><td class="num">191 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num best">175 MB</td><td class="num">180 MB</td><td class="num">278 MB</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr></tbody></table></div>
+  <p class="note">16 KB: train 2 MB, buffer 16 MB (đề xuất của sếp). 64 KB: train 6,4 MB, buffer 64 MB.</p>
+  <p>Dictionary 64 KB: file -9,1% so với không dictionary (16 KB, bộ tham số sếp đề xuất: -4,7%), tra 1000 key bằng nhau giữa 16 KB và 64 KB. <b>Cái giá của dictionary</b>: tra 1000 key +12,1% (0,33 s → 0,37 s) và dump +19,9% (279 s → 334 s, một lần lúc ghi); RAM dump tăng do giữ mẫu để train, có giới hạn cứng nên không tăng theo số dòng. Chọn 64 KB vì file nhỏ hơn rõ rệt trong khi chênh lệch tra chỉ vài chục ms cho 1000 key; nếu ưu tiên thời gian tra tuyệt đối hơn dung lượng thì tắt dictionary vẫn là lựa chọn hợp lệ.</p>
+  <h3>java-rocksdb: kích thước dictionary (screen riêng, cùng giao thức)</h3>
+  <div class="scroll"><table><thead><tr><th>java-rocksdb, mỗi cấu hình dump 1 lần</th><th class="num">Không dictionary</th><th class="num">Dictionary 16 KB</th><th class="num">Dictionary 64 KB</th></tr></thead><tbody><tr><th scope=row>File so với không dictionary</th><td class=num>+0,0%</td><td class=num>-4,7%</td><td class=num>-9,1%</td></tr><tr><th scope=row>Dung lượng file</th><td class="num">6,0 GB</td><td class="num">5,7 GB</td><td class="num best">5,4 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num">0,48 s</td><td class="num">0,48 s</td><td class="num best">0,45 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">0,89 s</td><td class="num">0,84 s</td><td class="num best">0,81 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num best">339 MB</td><td class="num">340 MB</td><td class="num">343 MB</td></tr><tr><th scope=row>Tra key không tồn tại<small>gần như chỉ còn khởi động</small></th><td class="num">0,43 s</td><td class="num best">0,42 s</td><td class="num">0,43 s</td></tr><tr><th scope=row>Dump · thời gian</th><td class="num best">372 s</td><td class="num">420 s</td><td class="num">406 s</td></tr><tr><th scope=row>Dump · CPU</th><td class="num best">215 s</td><td class="num">245 s</td><td class="num">244 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num best">485 MB</td><td class="num">543 MB</td><td class="num">602 MB</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr></tbody></table></div>
+  <p>Cùng chiều với Go về dung lượng: dictionary 64 KB file -9,1% (16 KB: -4,7%). Khác Go: tra 1000 key không chậm đi (0,89 s → 0,81 s), phần khởi động JVM (~0,4 s) che chênh lệch nhỏ. Cái giá còn lại: dump +9,2% (372 s → 406 s) và RAM dump 485 → 602 MB. Chọn 64 KB, cùng cấu hình với Go.</p>
+  <p class="note">Mỗi cấu hình chỉ dump 1 lần nên chênh lệch vài % (ví dụ tra 1000 key giữa 16 KB và 64 KB) nằm trong
+  nhiễu đo; kết luận chắc chắn là dung lượng file.</p>
+  <h3>java-parquet-duckdb: codec và số luồng DuckDB</h3>
+  <div class="scroll"><table><thead><tr><th>java-parquet-duckdb, mỗi cấu hình dump 1 lần</th><th class="num">ZSTD, 4 luồng</th><th class="num">ZSTD, 10 luồng</th><th class="num">SNAPPY, 4 luồng</th></tr></thead><tbody><tr><th scope=row>Dung lượng file</th><td class="num best">5,3 GB</td><td class="num best">5,3 GB</td><td class="num">7,6 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num">1,61 s</td><td class="num best">1,59 s</td><td class="num">1,66 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">43,5 s</td><td class="num">44,0 s</td><td class="num best">36,9 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num">2,10 GB</td><td class="num">2,54 GB</td><td class="num best">1,55 GB</td></tr><tr><th scope=row>Tra key không tồn tại<small>gần như chỉ còn khởi động</small></th><td class="num">1,49 s</td><td class="num">1,60 s</td><td class="num best">1,48 s</td></tr><tr><th scope=row>Dump · thời gian</th><td class="num">378 s</td><td class="num">378 s</td><td class="num best">312 s</td></tr><tr><th scope=row>Dump · CPU</th><td class="num">216 s</td><td class="num">216 s</td><td class="num best">188 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num best">740 MB</td><td class="num best">740 MB</td><td class="num">764 MB</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr></tbody></table></div>
+  <p>SNAPPY giải nén nhanh hơn: tra 1000 key -15,2% nhưng file +43,5%: đánh đổi dung lượng nhiều hơn thời gian được lợi, nên giữ ZSTD. 10 luồng DuckDB: tra 1000 key 44,0 s so với 43,5 s ở 4 luồng, không nhanh hơn, nên giữ 4 luồng.</p>
+  <p class="note">Đã thử trước đó trên dữ liệu seed cũ (kết quả còn trong <code>results/</code>, không đưa vào đây vì
+  không cùng dữ liệu): block RocksDB 256 KB và ZSTD mức 9 không làm file nhỏ thêm mà tra hoặc dump chậm hơn; bloom filter
+  và page index cho Parquet làm file to hơn, tra không nhanh hơn.</p>
 </section>
 
 <section>
   <h2>Best practice theo từng phương án</h2>
   <div class="scroll"><table class="plain"><thead><tr><th>Phương án</th><th>Nên dùng</th><th>Không nên</th></tr></thead><tbody>
-  <tr><th scope=row>go-rocksdb</th><td>Bật ZSTD dictionary (<code>ROCKSDB_ZSTD_DICT_BYTES=65536</code>), giữ block 64 KB và
-  mức ZSTD mặc định; index và bloom phân vùng; ghi bằng <code>SstFileWriter</code> + ingest; đọc Oracle bằng godror lô
-  1.000, tắt prefetch.</td>
-  <td>Block 256 KB, mức ZSTD 9: không nén thêm, tra hoặc dump chậm hơn. Driver go-ora: ~1,2 GB RAM ở lô 10.000.</td></tr>
-  <tr><th scope=row>java-rocksdb</th><td>Bật ZSTD dictionary như bản Go, đặt qua parser options native
+  <tr><th scope=row>go-rocksdb</th><td>Bật ZSTD dictionary 64 KB (<code>ROCKSDB_ZSTD_DICT_BYTES=65536</code>, train 6,4 MB,
+  buffer 64 MB), ZSTD mức 3, block 64 KB; index và bloom phân vùng; ghi bằng <code>SstFileWriter</code> + ingest; đọc
+  Oracle bằng godror lô 1.000, tắt prefetch.</td>
+  <td>Block 256 KB, ZSTD mức 9 (không có lợi). Driver go-ora: ~1,2 GB RAM ở lô 10.000.</td></tr>
+  <tr><th scope=row>java-rocksdb</th><td>Cùng cấu hình RocksDB như bản Go, đặt dictionary qua parser options native
   (<code>ColumnFamilyOptions.getColumnFamilyOptionsFromProps</code>, chế độ nghiêm ngặt) cho cả
-  <code>compression_opts</code> và <code>bottommost_compression_opts</code>; block 64 KB, index và bloom phân vùng;
-  ojdbc lô 10.000.</td>
+  <code>compression_opts</code> và <code>bottommost_compression_opts</code>; ghi JSON bằng <code>StringBuilder</code>;
+  ojdbc lô 1.000.</td>
   <td>Đặt dictionary qua <code>CompressionOptions</code> của rocksdbjni: lớp này thiếu <code>max_dict_buffer_bytes</code>,
-  RocksDB sẽ giữ cả file trong RAM để lấy mẫu. Gọi lại <code>setCompressionOptions</code> sau khi parse: ghi đè mất giới hạn.</td></tr>
-  <tr><th scope=row>java-parquet-duckdb</th><td>Ghi dữ liệu đã sort theo <code>REFERENCE</code> (đang làm, nhờ đó mỗi key chỉ
-  đọc 1 row group); chạy thành service thường trực để không trả ~1,4 s khởi động JVM và DuckDB ở mỗi lần tra; gom
-  key tra theo lô vào một câu <code>IN (...)</code>.</td>
-  <td>Bloom filter và page index (đã thử, phương án parquet-lookup): file to hơn, tra không nhanh hơn. Kỳ vọng tra nhanh
-  như RocksDB: không đạt được (mục dưới).</td></tr>
+  RocksDB sẽ giữ cả file trong RAM để lấy mẫu. Ghi JSON qua <code>StringWriter</code> (khoá đồng bộ từng ký tự) và
+  <code>String.format</code> mỗi cột mỗi dòng.</td></tr>
+  <tr><th scope=row>java-parquet-duckdb</th><td>Ghi dữ liệu đã sort theo <code>REFERENCE</code> (nhờ đó tra 1 key chỉ đọc
+  1 row group); row group 128 MB, ZSTD, dictionary encoding; chạy thành service thường trực để không trả khởi động JVM
+  và DuckDB ở mỗi lần tra; gom key tra theo lô vào một câu <code>IN (...)</code>.</td>
+  <td>Kỳ vọng tra nhanh như RocksDB: không đạt được (mục dưới).</td></tr>
   </tbody></table></div>
 </section>
 
 <section>
   <h2>Vì sao Parquet tra chậm, và không sửa triệt để được</h2>
-  <div class="scroll"><table><thead><tr><th>java-parquet-duckdb, dữ liệu lặp</th><th class="num">1M dòng</th><th class="num">2M dòng</th><th>Tăng theo kích thước file?</th></tr></thead><tbody><tr><th scope=row>Tra 1 key</th><td class=num>1,76 s</td><td class=num>1,70 s</td><td>Không</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class=num>1,55 s</td><td class=num>1,58 s</td><td>Không</td></tr><tr><th scope=row>Tra 1000 key</th><td class=num>43,0 s</td><td class=num>85 s</td><td><b>Có</b>, gấp đôi khi file gấp đôi</td></tr></tbody></table></div>
+  <div class="scroll"><table><thead><tr><th>java-parquet-duckdb, dữ liệu lặp</th><th class="num">1M dòng</th><th class="num">2M dòng</th><th>Tăng theo kích thước file?</th></tr></thead><tbody><tr><th scope=row>Dung lượng file</th><td class=num>5,3 GB</td><td class=num>10,6 GB</td><td>Có (đương nhiên)</td></tr><tr><th scope=row>Tra 1 key</th><td class=num>1,54 s</td><td class=num>1,72 s</td><td>Không đáng kể (+0,2 s)</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class=num>1,46 s</td><td class=num>1,55 s</td><td>Không đáng kể (+0,1 s)</td></tr><tr><th scope=row>Tra 1000 key</th><td class=num>42,8 s</td><td class=num>86 s</td><td><b>Có</b>, gấp ~2 lần khi file gấp đôi</td></tr></tbody></table></div>
   <ul>
     <li>Parquet lưu theo cột, nén theo row group (~21k dòng, ~117 MB). Lấy 1 bản ghi đủ 73 cột phải giải nén nguyên row
     group chứa nó.</li>
-    <li><b>Tra 1 key không tăng theo file</b>: dữ liệu đã sort nên min/max của từng row group chỉ ra đúng 1 row group
-    (đo được: quét 1/48 ở 1M, 1/96 ở 2M). Thời gian gồm ~0,4 s khởi động JVM, ~1 s mở DuckDB, ~0,2 s truy vấn.</li>
+    <li><b>Tra 1 key gần như không tăng theo file</b>: dữ liệu đã sort nên min/max của từng row group chỉ ra đúng 1 row
+    group (chỉ tăng chút do footer to hơn).</li>
     <li><b>Tra 1000 key tăng theo file</b>: 1000 key ngẫu nhiên chạm gần hết row group, nên đọc gần cả file; file gấp đôi
     thì phải giải nén gấp đôi.</li>
     <li>RocksDB lưu theo dòng, đơn vị nén là block 64 KB (~3 bản ghi): 1000 key chỉ đọc ~1000 block nhỏ, không phụ
     thuộc kích thước file.</li>
-    <li><b>Không sửa triệt để được</b> vì đây là bản chất của định dạng theo cột. Row group nhỏ hơn giảm byte mỗi lần
-    tra nhưng footer (metadata mọi row group) to ra, làm chính tra 1 key tăng theo file, và nén kém đi. Service thường
-    trực bỏ được phần khởi động, mỗi key vẫn ~0,2 s so với vài ms của RocksDB.</li>
+    <li><b>Không sửa triệt để được</b> vì đây là bản chất của định dạng theo cột: tăng số luồng DuckDB không làm nhanh hơn, còn đổi codec chỉ
+    đánh đổi dung lượng lấy thời gian (xem bảng chọn cấu hình).</li>
   </ul>
 </section>
 
@@ -142,63 +179,33 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
     <li>RocksDB lưu theo dòng, nén từng block 64 KB (~3 bản ghi) độc lập. Mỗi block bắt đầu với "trí nhớ" rỗng nên
     các chuỗi lặp khắp file ("khoản", <code>BRANCH_00</code>, tên cột JSON…) phải ghi lại ở từng block. Parquet nén
     cả cột của ~21k dòng một lần nên không bị như vậy.</li>
-    <li>Bật dictionary: lúc ghi, RocksDB lấy mẫu dữ liệu (tối đa 64 MB), train một từ điển 64 KB, lưu một lần trong
-    file; mọi block nén và giải nén dựa trên từ điển đó. Block vẫn nhỏ nên tra vẫn nhanh.</li>
+    <li>Bật dictionary: lúc ghi, RocksDB lấy mẫu dữ liệu, train một từ điển nhỏ, lưu một lần trong file; mọi block nén
+    và giải nén dựa trên từ điển đó. Block vẫn nhỏ nên tra vẫn nhanh.</li>
     <li>Là tuỳ chọn chuẩn của RocksDB (<code>max_dict_bytes</code>, <code>zstd_max_train_bytes</code>,
     <code>max_dict_buffer_bytes</code>); file đọc được bằng RocksDB thông thường.</li>
   </ul>
 </section>
 
 <section>
-  <h2>So sánh fair Java và Go, dictionary OFF / ON</h2>
-  <p>Theo đề xuất của sếp: cùng dữ liệu 1M dòng, cùng key và value JSON, cùng đường ghi (<code>SstFileWriter</code> rồi
-  ingest, một writer), cùng tham số nén đặt cho cả <code>compression_opts</code> và <code>bottommost_compression_opts</code>:</p>
-  <ul>
-    <li><b>OFF</b>: ZSTD mức 3, không dictionary.</li>
-    <li><b>ON</b>: ZSTD mức 3, dictionary 16 KB, mẫu train 2 MB, buffer lấy mẫu 16 MB, ZSTD trainer.</li>
-  </ul>
-  <p>Java đặt tham số qua parser options native (<code>getColumnFamilyOptionsFromProps</code>, chế độ nghiêm ngặt) vì
-  lớp <code>CompressionOptions</code> của rocksdbjni không có <code>max_dict_buffer_bytes</code>. Mỗi ca dump 3 lần lấy
-  trung vị; tra cứu 1 lần làm nóng rồi 3 lần. Sau mỗi dump, <code>sst_dump</code> xác nhận tham số đã xuống native và
-  file có khối dictionary.</p>
-  <div class="scroll"><table><thead><tr><th>Dữ liệu lặp, 1M dòng</th><th class="num">Java OFF</th><th class="num">Java ON</th><th class="num">Go OFF</th><th class="num">Go ON</th></tr></thead><tbody><tr><th scope=row>Dung lượng file</th><td class="num">5,9 GB</td><td class="num best">5,7 GB</td><td class="num">5,9 GB</td><td class="num best">5,7 GB</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num">0,53 s</td><td class="num">0,52 s</td><td class="num">0,02 s</td><td class="num best">0,02 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num">1,00 s</td><td class="num">1,07 s</td><td class="num">0,44 s</td><td class="num best">0,44 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num">266 MB</td><td class="num">270 MB</td><td class="num best">159 MB</td><td class="num best">159 MB</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class="num">0,47 s</td><td class="num">0,47 s</td><td class="num">0,01 s</td><td class="num best">0,01 s</td></tr><tr><th scope=row>Dump · CPU</th><td class="num">308 s</td><td class="num">338 s</td><td class="num best">156 s</td><td class="num">193 s</td></tr><tr><th scope=row>Dump · thời gian</th><td class="num">467 s</td><td class="num">497 s</td><td class="num best">309 s</td><td class="num">337 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">639 MB</td><td class="num">668 MB</td><td class="num best">174 MB</td><td class="num">226 MB</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr><tr><th scope=row>Tham số native trong SST<small>sst_dump --show_properties</small></th><td class=num>level=3<br>dict=0 KB<br>train=0 MB<br>buffer=0 MB</td><td class=num>level=3<br>dict=16 KB<br>train=2 MB<br>buffer=16 MB</td><td class=num>level=3<br>dict=0 KB<br>train=0 MB<br>buffer=0 MB</td><td class=num>level=3<br>dict=16 KB<br>train=2 MB<br>buffer=16 MB</td></tr><tr><th scope=row>File có dictionary<small>khối rocksdb.compression_dict</small></th><td class=num>Không</td><td class=num>Có</td><td class=num>Không</td><td class=num>Có</td></tr></tbody></table></div>
-  <p class="note">Khác biệt còn lại giữa hai bên, không đồng nhất được: RocksDB native của Java là bản đóng gói trong
-  rocksdbjni 11.8.1, của Go là librocksdb 11.13.2 (Homebrew); driver đọc Oracle là ojdbc lô 10.000 và godror lô 1.000;
-  ngân sách RAM runtime <code>-Xmx2g</code> và <code>GOMEMLIMIT=2GiB</code>.</p>
-  <h3>Java đọc Oracle lô 1.000 như Go</h3>
-  <p>Thử bỏ khác biệt về lô đọc: chạy lại dump Java (dictionary ON) với <code>ORACLE_FETCH_SIZE=1000</code>, 3 lần lấy
-  trung vị. RAM giảm phần bộ đệm của lô lớn, thời gian và CPU không đổi: lô đọc không phải lý do Java chậm hơn Go.
-  Phần chênh còn lại nằm ở JVM (đổi dữ liệu sang <code>String</code>, ghi JSON, chép qua JNI, heap nền), chưa
-  profile tách từng khoản.</p>
-  <div class="scroll"><table><thead><tr><th>Dictionary ON, 1M dòng</th><th class="num">Java, ojdbc lô 10.000</th><th class="num">Java, ojdbc lô 1.000</th><th class="num">Go, godror lô 1.000</th></tr></thead><tbody><tr><th scope=row>Dump · thời gian</th><td class="num">497 s</td><td class="num">512 s</td><td class="num best">337 s</td></tr><tr><th scope=row>Dump · CPU</th><td class="num">338 s</td><td class="num">333 s</td><td class="num best">193 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num">668 MB</td><td class="num">525 MB</td><td class="num best">226 MB</td></tr><tr><th scope=row>Dung lượng file</th><td class="num best">5,7 GB</td><td class="num best">5,7 GB</td><td class="num best">5,7 GB</td></tr></tbody></table></div>
+  <h2>Cấu hình chỉnh được bằng biến môi trường</h2>
+  <div class="scroll"><table class="plain"><thead><tr><th>Phương án</th><th>Biến</th></tr></thead><tbody>
+  <tr><th scope=row>go-rocksdb, java-rocksdb</th><td><code>ROCKSDB_ZSTD_LEVEL</code>, <code>ROCKSDB_ZSTD_DICT_BYTES</code> (0 = tắt),
+  <code>ROCKSDB_ZSTD_TRAIN_BYTES</code>, <code>ROCKSDB_ZSTD_BUFFER_BYTES</code>, <code>ROCKSDB_BLOCK_BYTES</code>,
+  <code>ROCKSDB_BLOOM_BITS</code>, <code>ROCKSDB_INDEX</code> (partitioned | binary), <code>ROCKSDB_CACHE_BYTES</code>,
+  <code>ROCKSDB_METADATA_BYTES</code></td></tr>
+  <tr><th scope=row>java-parquet-duckdb</th><td><code>PARQUET_COMPRESSION</code>, <code>PARQUET_ZSTD_LEVEL</code>,
+  <code>PARQUET_ROW_GROUP_BYTES</code>, <code>PARQUET_ROW_GROUP_ROWS</code>, <code>PARQUET_DICTIONARY</code>,
+  <code>PARQUET_DICT_PAGE_BYTES</code>, <code>PARQUET_PAGE_BYTES</code>, <code>DUCKDB_THREADS</code>,
+  <code>DUCKDB_MEMORY_LIMIT</code></td></tr>
+  <tr><th scope=row>Cả ba</th><td><code>ORACLE_FETCH_SIZE</code>, <code>JAVA_OPTS</code>, <code>GOMEMLIMIT</code>;
+  không đặt biến nào thì giữ cấu hình mặc định như trước.</td></tr>
+  </tbody></table></div>
+  <p class="note">Chạy lại toàn bộ: <code>SEED=20261117 SEED_MODE=status make seed</code> rồi
+  <code>bench/run_final.sh screen</code> và <code>bench/run_final.sh final</code>.</p>
 </section>
 
-<section>
-  <h2>Thử nghiệm trên go-rocksdb</h2>
-  <p>Thử 3 tuỳ chọn nén chuẩn của RocksDB. Chỉ dictionary có lợi: block 256 KB và mức ZSTD 9 không làm file nhỏ thêm,
-  trong khi tra 1000 key chậm hơn, RAM tra gấp đôi, mức 9 còn làm dump chậm gấp hơn 2 lần.</p>
-  <div class="scroll"><table><thead><tr><th>go-rocksdb, dữ liệu lặp, 1M</th><th class="num">Cấu hình cũ<small>block 64 KB · dict — · mức mặc định</small></th><th class="num">+ dictionary<small>block 64 KB · dict 64 KB · mức mặc định</small></th><th class="num">+ dictionary, block 256 KB<small>block 256 KB · dict 64 KB · mức mặc định</small></th><th class="num">+ dictionary, block 256 KB, mức 9<small>block 256 KB · dict 64 KB · mức 9</small></th></tr></thead><tbody><tr><th scope=row>Dung lượng file</th><td class="num">5,9 GB</td><td class="num best">5,4 GB</td><td class="num">5,4 GB</td><td class="num">5,5 GB</td></tr><tr><th scope=row>So với cấu hình cũ</th><td class=num>+0,0%</td><td class=num>-8,9%</td><td class=num>-8,4%</td><td class=num>-7,1%</td></tr><tr><th scope=row>Tra 1 key · thời gian<small>gồm khởi động tiến trình</small></th><td class="num best">0,02 s</td><td class="num best">0,02 s</td><td class="num best">0,02 s</td><td class="num">0,02 s</td></tr><tr><th scope=row>Tra 1000 key · thời gian</th><td class="num best">0,35 s</td><td class="num">0,39 s</td><td class="num">0,60 s</td><td class="num">0,57 s</td></tr><tr><th scope=row>Tra 1000 key · RAM đỉnh</th><td class="num">160 MB</td><td class="num best">159 MB</td><td class="num">325 MB</td><td class="num">327 MB</td></tr><tr><th scope=row>Tra key không tồn tại</th><td class="num best">0,01 s</td><td class="num">0,02 s</td><td class="num">0,02 s</td><td class="num">0,02 s</td></tr><tr><th scope=row>Dump · thời gian</th><td class="num best">267 s</td><td class="num">333 s</td><td class="num">308 s</td><td class="num">774 s</td></tr><tr><th scope=row>Dump · RAM đỉnh</th><td class="num best">166 MB</td><td class="num">284 MB</td><td class="num">242 MB</td><td class="num">238 MB</td></tr><tr><th scope=row>Khớp Oracle từng byte</th><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td><td class=num>1000/1000</td></tr></tbody></table></div>
-</section>
-
-<section>
-  <h2>Cách bật và giới hạn</h2>
-  <ul>
-    <li>Cả hai bản RocksDB: <code>ROCKSDB_ZSTD_DICT_BYTES=65536</code>. Tuỳ chọn thêm: <code>ROCKSDB_ZSTD_TRAIN_BYTES</code>
-    (mặc định 100 × dict), <code>ROCKSDB_ZSTD_BUFFER_BYTES</code> (mặc định 64 MiB), <code>ROCKSDB_ZSTD_LEVEL</code>.
-    Không đặt thì giữ cấu hình cũ.</li>
-    <li>Đã xác nhận bằng <code>sst_dump --show_properties</code> trên file 100k dòng: Java và Go ghi cùng tham số native
-    (<code>max_dict_bytes=65536; zstd_max_train_bytes=6553600; max_dict_buffer_bytes=67108864</code>), file SST có khối
-    <code>rocksdb.compression_dict</code>; bản tắt dictionary không có khối này.</li>
-    <li>Chưa thử bộ tham số nhỏ hơn (dictionary 16 KB, mẫu 2 MB, buffer 16 MB): RAM khi dump có thể thấp hơn, độ nén
-    cần đo lại.</li>
-    <li>Cái giá: dump chậm hơn khoảng 25% (go-rocksdb), RAM khi dump tăng do giữ mẫu để train. Phần mẫu có giới hạn
-    cứng nên RAM không nên tăng theo số dòng; chưa đo ở 2M để xác nhận.</li>
-    <li>Chỉ đo ở 1M dòng dữ liệu lặp; dữ liệu thật lặp nhiều hơn nên dictionary có thể còn lợi hơn.</li>
-  </ul>
-</section>
-
-<footer>Sinh từ các file trong <code>results/status/</code> của repo parquet-profile. Cùng máy và cách đo với
-<code>final.html</code>.</footer>
+<footer>Sinh từ các file trong <code>results/status/</code> của repo parquet-profile (nhãn <code>final</code> và
+<code>screen-*</code>). Hạt giống dữ liệu: <code>results/status/seed.json</code>.</footer>
 </main>
 </body>
 </html>

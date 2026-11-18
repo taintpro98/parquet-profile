@@ -1,0 +1,68 @@
+{
+  "dataset": "status",
+  "impl": "go-rocksdb",
+  "variant": "screen-d64",
+  "op": "find",
+  "n": 1000,
+  "cache": "warm",
+  "repeat": 10,
+  "sample": "31630735",
+  "time": "2026-11-17 23:21",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ROCKSDB_ZSTD_BUFFER_BYTES=67108864 ROCKSDB_ZSTD_DICT_BYTES=65536 ROCKSDB_ZSTD_LEVEL=3 ROCKSDB_ZSTD_TRAIN_BYTES=6553600",
+  "archive": "data/go-rocksdb-status-screen-d64",
+  "summary": {
+    "runs": 3,
+    "wall_s": 0.371,
+    "cpu_s": 0.385,
+    "peak_rss_mb": 159,
+    "file_mb": null,
+    "rows": null,
+    "found": 1000,
+    "expected": 1000,
+    "checked": 1000,
+    "matched": 1000,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 0.377,
+      "cpu_s": 0.385,
+      "peak_rss_mb": 157,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "checked": 1000,
+      "matched": 1000,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "wall_s": 0.371,
+      "cpu_s": 0.382,
+      "peak_rss_mb": 159,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "checked": 1000,
+      "matched": 1000,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "wall_s": 0.368,
+      "cpu_s": 0.388,
+      "peak_rss_mb": 159,
+      "file_mb": null,
+      "rows": null,
+      "found": 1000,
+      "expected": 1000,
+      "checked": 1000,
+      "matched": 1000,
+      "ok": true
+    }
+  ]
+}

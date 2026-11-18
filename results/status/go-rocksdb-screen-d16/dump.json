@@ -1,0 +1,42 @@
+{
+  "dataset": "status",
+  "impl": "go-rocksdb",
+  "variant": "screen-d16",
+  "op": "dump",
+  "n": null,
+  "cache": null,
+  "repeat": 10,
+  "sample": null,
+  "time": "2026-11-17 23:14",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_FETCH_SIZE=1000 ORACLE_REPEAT=10 ORACLE_REPEAT_SINGLE=true ORACLE_TABLE=ARCHIVE_STATUS ROCKSDB_ZSTD_BUFFER_BYTES=16777216 ROCKSDB_ZSTD_DICT_BYTES=16384 ROCKSDB_ZSTD_LEVEL=3 ROCKSDB_ZSTD_TRAIN_BYTES=2097152",
+  "archive": "data/go-rocksdb-status-screen-d16",
+  "summary": {
+    "runs": 1,
+    "wall_s": 340.711,
+    "cpu_s": 188.961,
+    "peak_rss_mb": 180,
+    "file_mb": 5669,
+    "rows": 1000000,
+    "found": null,
+    "expected": null,
+    "checked": null,
+    "matched": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 340.711,
+      "cpu_s": 188.961,
+      "peak_rss_mb": 180,
+      "file_mb": 5669,
+      "rows": 1000000,
+      "found": null,
+      "expected": null,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    }
+  ]
+}

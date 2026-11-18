@@ -1,0 +1,4 @@
+file: data/java-rocksdb-status-screen-d64/2026-11-14.rocksdb/000008.sst
+  SST file compression algo: BuiltinV2;07;
+  SST file compression options: window_bits=-14; level=3; strategy=0; max_dict_bytes=65536; zstd_max_train_bytes=6553600; enabled=1; max_dict_buffer_bytes=67108864; use_zstd_dict_trainer=1; max_compressed_bytes_per_kb=896; checksum=0; _type=7; 
+khối rocksdb.compression_dict: 1

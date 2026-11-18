@@ -9,7 +9,6 @@ import com.mbbank.archive.common.Lookup;
 import com.mbbank.archive.common.Row;
 import com.mbbank.archive.common.RowCursor;
 import com.mbbank.archive.common.Settings;
-import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,7 +42,7 @@ import org.rocksdb.SstFileWriter;
  * ROCKSDB_CACHE_BYTES, để RAM native không vượt mức đặt ra.
  *
  * <p>Settings: ROCKSDB_BLOCK_BYTES (65536), ROCKSDB_CACHE_BYTES (64 MiB), ROCKSDB_CACHE_SHARD_BITS (-1 = tự chọn),
- * ROCKSDB_INDEX (partitioned | binary), ROCKSDB_CACHE_INDEX (true), ROCKSDB_METADATA_BYTES (4096),
+ * ROCKSDB_INDEX (partitioned | binary), ROCKSDB_CACHE_INDEX (true), ROCKSDB_METADATA_BYTES (4096), ROCKSDB_BLOOM_BITS (10),
  * ROCKSDB_ZSTD_DICT_BYTES / _TRAIN_BYTES / _BUFFER_BYTES / _LEVEL (xem Config.compression).
  */
 public final class RocksdbStore implements Archive {
@@ -69,7 +68,7 @@ public final class RocksdbStore implements Archive {
     private static final class Config implements AutoCloseable {
         final LRUCache cache = new LRUCache(Settings.number("ROCKSDB_CACHE_BYTES", 64L << 20),
                 Settings.integer("ROCKSDB_CACHE_SHARD_BITS", -1));
-        final BloomFilter bloom = new BloomFilter(10);
+        final BloomFilter bloom = new BloomFilter(Settings.integer("ROCKSDB_BLOOM_BITS", 10));
         final DBOptions dbOptions = new DBOptions();
         final ColumnFamilyOptions cfOptions = compression();
         final Options options = new Options(dbOptions, cfOptions).setTableFormatConfig(table(bloom, cache));
@@ -152,7 +151,7 @@ public final class RocksdbStore implements Archive {
         Files.createDirectories(out);
         Path sst = out.resolveSibling(out.getFileName() + ".sst");
         long count = 0;
-        StringWriter value = new StringWriter(32 << 10);
+        StringBuilder value = new StringBuilder(32 << 10);
         try (Config config = new Config();
                 EnvOptions env = new EnvOptions();
                 SstFileWriter writer = new SstFileWriter(env, config.options)) {
@@ -163,9 +162,9 @@ public final class RocksdbStore implements Archive {
                     texts[i] = rows.text(i + 1);
                 }
                 Row row = new Row(rows.id(), rows.reference(), rows.createdAt(), texts);
-                value.getBuffer().setLength(0);
-                Jsonl.write(value, row);
-                value.getBuffer().setLength(value.getBuffer().length() - 1); // bỏ xuống dòng
+                value.setLength(0);
+                Jsonl.append(value, row);
+                value.setLength(value.length() - 1); // bỏ xuống dòng
                 writer.put(row.reference().getBytes(StandardCharsets.UTF_8),
                         value.toString().getBytes(StandardCharsets.UTF_8));
                 count++;

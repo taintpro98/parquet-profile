@@ -2,7 +2,7 @@
   "dataset": "status",
   "table": "ARCHIVE_STATUS",
   "rows": 100000,
-  "table_mb": 2294.0,
+  "table_mb": 2304.0,
   "index_mb": 7.0,
-  "time": "2026-11-14 18:46"
+  "time": "2026-11-17 23:06"
 }

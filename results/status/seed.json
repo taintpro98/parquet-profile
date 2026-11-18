@@ -1,0 +1,8 @@
+{
+  "dataset": "status",
+  "seed": 20261117,
+  "rows": 100000,
+  "note": "SEED=20261117 SEED_MODE=status make seed sinh lại đúng dữ liệu này",
+  "time": "2026-11-17 23:09",
+  "table_mb": 2304.0
+}

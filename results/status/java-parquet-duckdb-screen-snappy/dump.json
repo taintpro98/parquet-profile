@@ -1,0 +1,42 @@
+{
+  "dataset": "status",
+  "impl": "java-parquet-duckdb",
+  "variant": "screen-snappy",
+  "op": "dump",
+  "n": null,
+  "cache": null,
+  "repeat": 10,
+  "sample": null,
+  "time": "2026-11-17 23:39",
+  "machine": "Darwin arm64 · 10 CPU",
+  "settings": "GOMEMLIMIT=2GiB JAVA_OPTS=-Xmx2g ORACLE_FETCH_SIZE=1000 ORACLE_REPEAT=10 ORACLE_REPEAT_SINGLE=true ORACLE_TABLE=ARCHIVE_STATUS PARQUET_COMPRESSION=SNAPPY",
+  "archive": "data/java-parquet-duckdb-status-screen-snappy",
+  "summary": {
+    "runs": 1,
+    "wall_s": 311.885,
+    "cpu_s": 187.978,
+    "peak_rss_mb": 764,
+    "file_mb": 7578,
+    "rows": 1000000,
+    "found": null,
+    "expected": null,
+    "checked": null,
+    "matched": null,
+    "ok": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wall_s": 311.885,
+      "cpu_s": 187.978,
+      "peak_rss_mb": 764,
+      "file_mb": 7578,
+      "rows": 1000000,
+      "found": null,
+      "expected": null,
+      "checked": null,
+      "matched": null,
+      "ok": true
+    }
+  ]
+}

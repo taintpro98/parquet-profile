@@ -39,7 +39,7 @@ func rocksdbOptions() (*grocksdb.Options, func()) {
 	cache := grocksdb.NewLRUCache(uint64(common.Int("ROCKSDB_CACHE_BYTES", 64<<20)))
 	table := grocksdb.NewDefaultBlockBasedTableOptions()
 	table.SetBlockSize(int(common.Int("ROCKSDB_BLOCK_BYTES", 64<<10)))
-	table.SetFilterPolicy(grocksdb.NewBloomFilter(10))
+	table.SetFilterPolicy(grocksdb.NewBloomFilter(float64(common.Int("ROCKSDB_BLOOM_BITS", 10))))
 	table.SetCacheIndexAndFilterBlocks(true)
 	table.SetCacheIndexAndFilterBlocksWithHighPriority(true)
 	table.SetPinL0FilterAndIndexBlocksInCache(true)
