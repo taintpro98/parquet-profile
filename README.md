@@ -50,8 +50,6 @@ results/<bộ>/oracle.json               dung lượng bảng + index trong Orac
 results/<bộ>/<phương án>[-<label>]/    dump.json, find-<N>.json, find-unknown.json, logs/
 data/<phương án>-<bộ>[-<label>]/       archive, mỗi ngày một file (hoặc thư mục) YYYY-MM-DD.<đuôi>
 final.html                             make summary vẽ ra (3 candidate, một câu SELECT mỗi ngày)
-final-report.html                      bản trước của final.html, không vẽ lại
-report.html                            báo cáo cũ của mọi phương án, không vẽ lại
 ```
 
 Đo từ ngoài tiến trình (`wait4`/rusage): wall, CPU, RAM đỉnh (RSS). Thời gian lấy trung vị, RAM lấy

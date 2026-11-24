@@ -13,8 +13,7 @@
   dữ liệu / kịch bản mà không phải chạy lại tất cả.
 - Một lệnh summarize riêng (`make summary`) đọc các file trong `results/` và vẽ `final.html` ở thư mục gốc
   (chỉ 3 candidate), kèm `upgrade.html` (thử nén RocksDB tốt hơn, `bench/upgrade_html.py`). Kết quả mới
-  ngoài 3 candidate ghi vào `upgrade.html`, không sửa `final.html`. `report.html` và `final-report.html`
-  là các bản trước, giữ nguyên, không vẽ lại.
+  ngoài 3 candidate ghi vào `upgrade.html`, không sửa `final.html`.
   Thiếu dữ liệu phần nào thì để trống phần đó, không báo lỗi.
 
 ## Bài toán (đọc trước khi thiết kế phương án)

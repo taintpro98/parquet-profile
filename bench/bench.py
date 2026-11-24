@@ -268,8 +268,7 @@ def write_result(out_dir, name, args, runs, archive, meta):
 
 
 def summary():
-    """Đọc results/ và vẽ final.html (3 candidate, một câu SELECT mỗi ngày). Ô nào chưa có kết quả ghi "đang đo".
-    report.html và final-report.html là các bản trước, giữ nguyên, không vẽ lại."""
+    """Đọc results/ và vẽ final.html (3 candidate, một câu SELECT mỗi ngày). Ô nào chưa có kết quả ghi "đang đo"."""
     import final_html  # đọc results/ lúc import, nên import ở đây để lấy số mới nhất
     import upgrade_html  # thử nén RocksDB tốt hơn, file riêng, không đụng final.html
     for module in (final_html, upgrade_html):
